@@ -431,12 +431,14 @@
           <div class="r"><span>担当者</span><span id="pv_person">-</span></div>
         </div>
       </div>
-      <table class="doc-table">
-        <thead>
-          <tr><th>No</th><th>品名</th><th>規格・仕様</th><th>材質</th><th class="num">数量</th><th class="num">単位重量</th><th class="num">重量(kg)</th><th class="num">単価(円/kg)</th><th class="num">金額(円)</th></tr>
-        </thead>
-        <tbody id="pv_body"></tbody>
-      </table>
+      <div style="overflow-x:auto;">
+        <table class="doc-table">
+          <thead>
+            <tr><th>No</th><th>品名</th><th>規格・仕様</th><th>材質</th><th class="num">数量</th><th class="num">長さ(mm)</th><th class="num">単位重量</th><th class="num">重量(kg)</th><th class="num">単価(円/kg)</th><th class="num">金額(円)</th></tr>
+          </thead>
+          <tbody id="pv_body"></tbody>
+        </table>
+      </div>
       <div class="doc-grand">
         <div class="stamp">
           <div class="l">合計重量 <span class="mono" id="pv_weight">0.0 kg</span></div>
@@ -1602,7 +1604,8 @@ function categoryOf(it){
   return idx>-1 ? it.spec.slice(0, idx) : it.spec;
 }
 function groupKeyOf(it){
-  return [it.type, it.category||'', it.name, it.spec, it.material, it.unitPrice, it.type==="shape"?it.lengthMm:''].join('|');
+  const lengthKey = (it.type==="shape"||it.type==="equipment") ? it.lengthMm : '';
+  return [it.type, it.category||'', it.name, it.spec, it.material, it.unitPrice, lengthKey].join('|');
 }
 function groupItemsForPreview(items){
   const map = new Map();
@@ -1613,7 +1616,7 @@ function groupItemsForPreview(items){
         type: it.type, name: it.name, spec: it.spec, material: it.material,
         unitWeightLabel: it.unitWeightLabel, unitLabel: it.unitLabel || "",
         unitPrice: it.unitPrice, rawQty:0, weight:0, amount:0,
-        category: categoryOf(it)
+        category: categoryOf(it), lengthMm: it.lengthMm
       });
     }
     const g = map.get(key);
@@ -1644,16 +1647,18 @@ function updatePreviewCalc(){
       lastCategory = it.category;
       const catRow = document.createElement('tr');
       catRow.className = 'cat-header-row';
-      catRow.innerHTML = `<td colspan="9">${escapeHtml(it.category)}</td>`;
+      catRow.innerHTML = `<td colspan="10">${escapeHtml(it.category)}</td>`;
       tbody.appendChild(catRow);
     }
     no++;
     const tr = document.createElement('tr');
     const qtyLabel = it.rawQty ? (it.rawQty + it.unitLabel) : "-";
     const weightCell = it.unitWeightLabel==='-' ? '-' : it.weight.toFixed(1);
+    const lengthCell = it.lengthMm ? it.lengthMm : "-";
     tr.innerHTML = `
       <td>${no}</td><td>${escapeHtml(it.name)}</td><td>${escapeHtml(it.spec)}</td>
       <td>${escapeHtml(it.material || '-')}</td><td class="num mono">${qtyLabel}</td>
+      <td class="num mono">${lengthCell}</td>
       <td class="num mono">${it.unitWeightLabel}</td><td class="num mono">${weightCell}</td>
       <td class="num mono">${it.unitPrice.toLocaleString('ja-JP')}</td><td class="num mono">${yen(it.amount)}</td>
     `;
