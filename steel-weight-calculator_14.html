@@ -360,8 +360,15 @@
   <!-- ============ EQUIPMENT PANEL ============ -->
   <div class="panel" id="panel-equipment">
     <datalist id="equipCategoryList">
-      <option value="スプロケット"><option value="Vプーリー">
-      <option value="チェーン"><option value="キャリヤアイドラ">
+      <option value="ボルト"><option value="皿ボルト"><option value="アンカーボルト"><option value="Uボルト">
+      <option value="ナット"><option value="座金">
+      <option value="スプロケット"><option value="Vプーリー"><option value="プーリー"><option value="チェーン">
+      <option value="キャリヤアイドラ"><option value="リターンアイドラ"><option value="コンベヤベルト">
+      <option value="ベルトクリーナー"><option value="シュート"><option value="ホッパー">
+      <option value="軸受"><option value="軸"><option value="カップリング"><option value="減速機">
+      <option value="電動機"><option value="キー">
+      <option value="ライナー"><option value="スクリーンメッシュ"><option value="ジョープレート">
+      <option value="ブローバー"><option value="マントル"><option value="コンケーブ">
     </datalist>
     <datalist id="equipUnitList">
       <option value="個"><option value="組"><option value="本"><option value="m"><option value="式">
@@ -371,8 +378,9 @@
       <h2>その他部材を追加</h2>
       <div class="grid">
         <div class="field"><label>分類</label><input id="eq_category" type="text" list="equipCategoryList" placeholder="スプロケット"></div>
-        <div class="field"><label>品名・型式</label><input id="eq_name" type="text" placeholder="SPB250 6条"></div>
-        <div class="field"><label>仕様(任意)</label><input id="eq_spec" type="text" placeholder="歯数24T 軸穴50mm"></div>
+        <div class="field" id="eq_lengthWrap" style="display:none;"><label>長さ(mm)</label><input id="eq_length" type="number" step="1"></div>
+        <div class="field"><label>品名・型式</label><input id="eq_name" type="text"></div>
+        <div class="field"><label>仕様(任意)</label><input id="eq_spec" type="text"></div>
         <div class="field"><label>数量</label><input id="eq_qty" type="number" step="1" value="1"></div>
         <div class="field"><label>単位</label><input id="eq_unit" type="text" list="equipUnitList" placeholder="個"></div>
         <div class="field"><label>単価(円/単位)</label><input id="eq_price" type="number" step="1" placeholder="0"></div>
@@ -1425,6 +1433,7 @@ function escapeAttr(s){ return escapeHtml(s).replace(/"/g,"&quot;"); }
 
 /* =============== equipment (その他部材) =============== */
 let editingEquipmentId = null;
+function isBoltCategory(cat){ return /ボルト/.test(cat||""); }
 function addEquipmentItem(){
   const category = $('eq_category').value.trim();
   const name = $('eq_name').value.trim();
@@ -1436,19 +1445,21 @@ function addEquipmentItem(){
   const unitPrice = isNaN(price) ? 0 : price;
   const weightVal = parseFloat($('eq_weight').value);
   const weightPerUnit = isNaN(weightVal) ? null : weightVal;
+  const isBolt = isBoltCategory(category);
+  const lengthMm = isBolt ? (parseFloat($('eq_length').value) || 0) : null;
   currentProject.equipmentItems.push({
     id: uid(), type:"equipment",
     category, name,
     spec: $('eq_spec').value.trim(),
     unitWeightLabel: weightPerUnit!=null ? weightPerUnit.toFixed(2)+" kg/"+unit : "-",
     weightPerUnit,
-    qtyLabel: qty + unit,
+    qtyLabel: qty + unit + (isBolt && lengthMm>0 ? ` (L=${lengthMm}mm)` : ""),
     weight: weightPerUnit!=null ? weightPerUnit*qty : 0,
     unitPrice, amount: qty*unitPrice,
-    rawQty: qty, unitLabel: unit
+    rawQty: qty, unitLabel: unit, lengthMm
   });
   $('eq_name').value=""; $('eq_spec').value=""; $('eq_qty').value="1";
-  $('eq_price').value=""; $('eq_weight').value="";
+  $('eq_price').value=""; $('eq_weight').value=""; $('eq_length').value="";
   afterEquipmentAdd();
 }
 async function afterEquipmentAdd(){
@@ -1487,8 +1498,12 @@ function renderEquipmentItems(){
     const tr = document.createElement('tr');
     if(it.id === editingEquipmentId){
       tr.classList.add('editing-row');
+      const isBolt = isBoltCategory(it.category);
       tr.innerHTML = `
-        <td data-label="分類"><input class="edit-cell-input" data-f="category" value="${escapeAttr(it.category)}" list="equipCategoryList"></td>
+        <td data-label="分類">
+          <input class="edit-cell-input" data-f="category" value="${escapeAttr(it.category)}" list="equipCategoryList">
+          <input class="edit-cell-input mono" data-f="lengthMm" type="number" step="1" value="${it.lengthMm ?? ''}" placeholder="長さmm" style="width:100%; margin-top:4px; ${isBolt?'':'display:none;'}">
+        </td>
         <td data-label="品名・型式"><input class="edit-cell-input" data-f="name" value="${escapeAttr(it.name)}"></td>
         <td data-label="仕様"><input class="edit-cell-input" data-f="spec" value="${escapeAttr(it.spec||'')}"></td>
         <td class="num" data-label="数量">
@@ -1538,6 +1553,12 @@ function renderEquipmentItems(){
       else if(act==='down'){ moveEquipmentItem(id, 1); }
     });
   });
+  tbody.querySelectorAll('input[data-f="category"]').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      const lenInput = inp.parentElement.querySelector('[data-f="lengthMm"]');
+      if(lenInput) lenInput.style.display = isBoltCategory(inp.value) ? '' : 'none';
+    });
+  });
 }
 async function saveEquipmentEdit(id){
   const it = currentProject.equipmentItems.find(i=>i.id===id);
@@ -1562,7 +1583,11 @@ async function saveEquipmentEdit(id){
   it.weightPerUnit = weightPerUnit;
   it.unitWeightLabel = weightPerUnit!=null ? weightPerUnit.toFixed(2)+" kg/"+newUnit : "-";
   it.weight = weightPerUnit!=null ? weightPerUnit*newQty : 0;
-  it.qtyLabel = newQty + newUnit;
+  const isBolt = isBoltCategory(it.category);
+  const lengthField = row.querySelector('[data-f="lengthMm"]');
+  const newLength = isBolt && lengthField ? (parseFloat(lengthField.value) || 0) : null;
+  it.lengthMm = newLength;
+  it.qtyLabel = newQty + newUnit + (isBolt && newLength>0 ? ` (L=${newLength}mm)` : "");
   it.amount = newQty * it.unitPrice;
 
   editingEquipmentId = null;
@@ -1746,6 +1771,9 @@ function bindEvents(){
   $('s_favBtn').addEventListener('click', saveShapeFavorite);
   $('p_favBtn').addEventListener('click', savePlateFavorite);
   $('eq_addBtn').addEventListener('click', addEquipmentItem);
+  $('eq_category').addEventListener('input', ()=>{
+    $('eq_lengthWrap').style.display = isBoltCategory($('eq_category').value) ? '' : 'none';
+  });
 
   let companyNameDebounce;
   $('companyName').addEventListener('input', ()=>{
