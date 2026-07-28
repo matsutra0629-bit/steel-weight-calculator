@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>鋼材重量計算・材料集計</title>
+<style>
+  :root{
+    --paper:#F6F4EF;
+    --ink:#1C2B3A;
+    --steel:#3D6B8C;
+    --steel-dark:#294A63;
+    --rust:#B85C2E;
+    --line:#D8D3C7;
+    --stripe:#EFEBE2;
+    --white:#FFFFFF;
+    --danger:#B23A32;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:0; background:var(--paper); color:var(--ink);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,"Noto Sans JP",sans-serif;
+    font-size:14px; line-height:1.5;
+  }
+  .mono{font-family:"SFMono-Regular","Consolas","Menlo",monospace; font-variant-numeric:tabular-nums;}
+  #app{max-width:1180px; margin:0 auto; padding:20px 20px 60px;}
+
+  /* header / project bar */
+  .topbar{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    padding:16px 20px; background:var(--steel-dark); color:#fff; border-radius:10px;
+    margin-bottom:18px;
+  }
+  .topbar h1{font-size:17px; margin:0; letter-spacing:.03em; font-weight:700; margin-right:auto;}
+  .topbar .sub{font-size:11px; opacity:.75; display:block; margin-top:2px; font-weight:400;}
+  select, input, button{
+    font-family:inherit; font-size:13px; border-radius:6px; border:1px solid var(--line);
+    padding:7px 9px; background:#fff; color:var(--ink);
+  }
+  .topbar select{ min-width:150px; }
+  .btn{
+    cursor:pointer; border:1px solid var(--steel); background:var(--steel); color:#fff;
+    font-weight:600; transition:opacity .15s;
+  }
+  .btn:hover{opacity:.88;}
+  .btn.ghost{background:transparent; border:1px solid rgba(255,255,255,.5); color:#fff;}
+  .btn.rust{background:var(--rust); border-color:var(--rust);}
+  .btn.small{padding:4px 8px; font-size:12px;}
+  .btn.danger{background:var(--danger); border-color:var(--danger);}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+
+  /* tabs */
+  .tabs{display:flex; gap:4px; margin-bottom:16px; border-bottom:2px solid var(--line);}
+  .tab{
+    padding:9px 18px; cursor:pointer; font-weight:600; color:#8b8578; font-size:13px;
+    border-bottom:2px solid transparent; margin-bottom:-2px;
+  }
+  .tab.active{color:var(--steel-dark); border-bottom-color:var(--rust);}
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .card{
+    background:var(--white); border:1px solid var(--line); border-radius:10px;
+    padding:18px 20px; margin-bottom:18px;
+  }
+  .card h2{font-size:13px; margin:0 0 14px; color:var(--steel-dark); letter-spacing:.04em;
+    text-transform:uppercase; font-weight:700; display:flex; align-items:center; gap:8px;}
+  .card h2::before{content:""; width:4px; height:14px; background:var(--rust); display:inline-block; border-radius:2px;}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px;}
+  .field{display:flex; flex-direction:column; gap:4px;}
+  .field label{font-size:11px; color:#6b7280; font-weight:600;}
+  .field input, .field select{width:100%;}
+  .radiorow{display:flex; gap:14px; align-items:center; font-size:12px; padding-top:4px;}
+  .radiorow label{display:flex; align-items:center; gap:5px; cursor:pointer; font-weight:500;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th,td{padding:8px 9px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap;}
+  th{background:var(--steel-dark); color:#fff; font-weight:600; font-size:11.5px; letter-spacing:.02em;}
+  tbody tr:nth-child(even){background:var(--stripe);}
+  tbody tr:hover{background:#E8EFF3;}
+  td.num, th.num{text-align:right;}
+  .del-btn{
+    border:none; background:none; color:var(--danger); cursor:pointer; font-size:15px; padding:2px 6px;
+  }
+  .edit-btn{
+    border:none; background:none; color:var(--steel); cursor:pointer; font-size:14px; padding:2px 6px;
+  }
+  .row-actions{display:flex; gap:2px;}
+  .tag{font-size:9.5px; padding:1px 6px; border-radius:9px; margin-left:6px; font-weight:700; letter-spacing:.02em; white-space:nowrap; display:inline-block;}
+  .tag.ref{background:#F5E3B3; color:#8a6511;}
+  .tag.calc{background:#D6EDE0; color:#1f6b46;}
+  td.ref-cell{background:#FBF3DE;}
+  td.calc-cell{background:#EAF6F0;}
+  .edit-cell-input{width:100%; padding:4px 5px; font-size:12.5px; border:1px solid var(--steel); border-radius:4px;}
+  tr.editing-row{background:#EFF5FA !important;}
+  .empty-row td{text-align:center; color:#9a9488; padding:26px; font-style:normal;}
+  .fav-row{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 4px; border-bottom:1px solid var(--line);
+  }
+  .fav-row:last-child{border-bottom:none;}
+  .fav-label{flex:1; min-width:180px; font-size:13px; font-weight:600;}
+  .fav-sub{font-size:11px; color:#8b8578; font-weight:400; display:block;}
+  .fav-inputs{display:flex; gap:6px; align-items:center;}
+  .fav-inputs input{width:64px; padding:5px 6px; font-size:12px;}
+  .fav-len-wrap{display:inline-flex; align-items:center; gap:4px;}
+  .fav-unit{font-size:11px; color:#8b8578; font-weight:600;}
+  .fav-empty{color:#9a9488; font-size:12.5px; padding:10px 4px;}
+
+  .totals{
+    display:flex; justify-content:flex-end; gap:26px; padding:16px 6px 4px; flex-wrap:wrap;
+  }
+  .totals .box{text-align:right;}
+  .totals .box .lbl{font-size:11px; color:#8b8578; font-weight:600;}
+  .totals .box .val{font-size:22px; font-weight:700; color:var(--steel-dark);}
+  .totals .box .val.money{color:var(--rust);}
+
+  .note{font-size:11.5px; color:#8b8578; margin-top:6px; line-height:1.6;}
+  .note b{color:var(--ink);}
+
+  /* preview / print */
+  #preview{background:#fff; border:1px solid var(--line); border-radius:10px; padding:34px 40px;}
+  .doc-company-bar{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
+  .doc-company-bar img{max-height:52px; max-width:170px; object-fit:contain;}
+  #pv_companyName{font-weight:700; font-size:15px; color:var(--ink);}
+  .doc-head{display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid var(--ink); padding-bottom:14px; margin-bottom:18px;}
+  .doc-head h2{font-size:22px; letter-spacing:.15em; margin:0;}
+  .doc-meta{font-size:12px; text-align:right; line-height:1.8;}
+  .doc-meta .r{display:flex; gap:10px; justify-content:flex-end;}
+  .doc-meta .r span:first-child{color:#8b8578;}
+  .doc-table th{background:#EFEBE2; color:var(--ink); border-bottom:2px solid var(--ink);}
+  .cat-header-row td{
+    background:var(--steel-dark); color:#fff; font-weight:700; font-size:12px;
+    letter-spacing:.05em; padding:7px 10px; border-bottom:none;
+  }
+  .doc-grand{border-top:2px solid var(--ink); margin-top:4px; padding-top:10px; display:flex; justify-content:flex-end;}
+  .doc-grand .stamp{
+    border:2px solid var(--rust); color:var(--rust); padding:10px 22px; text-align:right; border-radius:4px;
+  }
+  .doc-grand .stamp .l{font-size:11px; letter-spacing:.1em;}
+  .doc-grand .stamp .v{font-size:26px; font-weight:700;}
+  .doc-foot{margin-top:26px; font-size:11px; color:#8b8578;}
+
+  @media print{
+    body *{visibility:hidden;}
+    #preview, #preview *{visibility:visible;}
+    #preview{position:absolute; left:0; top:0; width:100%; border:none; padding:0;}
+    .no-print{display:none !important;}
+  }
+
+  .proj-modal-bg{
+    display:none; position:fixed; inset:0; background:rgba(20,25,30,.5); z-index:50;
+    align-items:center; justify-content:center;
+  }
+  .proj-modal-bg.show{display:flex;}
+  .proj-modal{background:#fff; border-radius:10px; padding:22px; width:320px;}
+  .proj-modal h3{margin:0 0 14px; font-size:14px;}
+  .proj-modal .row{display:flex; gap:8px; margin-top:14px; justify-content:flex-end;}
+
+  /* sticky summary bar */
+  .sticky-summary{
+    position:fixed; left:0; right:0; bottom:0; z-index:40;
+    background:var(--steel-dark); color:#fff;
+    display:flex; justify-content:center; gap:36px;
+    padding:10px 16px; box-shadow:0 -3px 14px rgba(0,0,0,.18);
+  }
+  .sticky-summary.hidden{display:none;}
+  .ss-item{display:flex; align-items:baseline; gap:8px;}
+  .ss-label{font-size:11px; opacity:.75; font-weight:600;}
+  .ss-val{font-size:16px; font-weight:700;}
+  .ss-val.money{color:#F0B27A;}
+  #app{padding-bottom:64px;}
+
+  /* mobile card layout for items table */
+  @media (max-width: 720px){
+    #itemsTable thead{display:none;}
+    #itemsTable, #itemsTable tbody, #itemsTable tr, #itemsTable td{display:block; width:100%;}
+    #itemsTable tr{
+      border:1px solid var(--line); border-radius:10px; margin-bottom:10px; padding:8px 10px;
+      background:var(--white);
+    }
+    #itemsTable tr.empty-row{border:none; background:none;}
+    #itemsTable tr:nth-child(even){background:var(--white);}
+    #itemsTable td{
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      text-align:right; padding:7px 2px; border-bottom:1px dashed var(--line); white-space:normal;
+    }
+    #itemsTable td:last-child{border-bottom:none;}
+    #itemsTable td[data-label]::before{
+      content:attr(data-label); font-size:11px; font-weight:700; color:#8b8578; text-align:left; flex-shrink:0;
+    }
+    #itemsTable td.row-actions{justify-content:flex-end;}
+    #itemsTable td.row-actions::before{content:none;}
+    .sticky-summary{gap:20px; padding:9px 10px;}
+    .ss-val{font-size:14px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <div>
+      <h1>鋼材重量計算・材料集計
+        <span class="sub">Steel Weight &amp; Material Take-off</span>
+      </h1>
+    </div>
+    <select id="projectSelect"></select>
+    <button class="btn ghost" id="newProjectBtn">＋ 新規現場</button>
+    <button class="btn ghost" id="deleteProjectBtn">削除</button>
+    <button class="btn ghost no-print" id="exportProjectBtn" title="この現場のデータをJSONファイルで保存">⭳ この現場</button>
+    <button class="btn ghost no-print" id="exportAllBtn" title="すべての現場のデータをJSONファイルで保存">⭳ 全現場</button>
+    <button class="btn ghost no-print" id="importBtn" title="JSONファイルから現場データを読み込む">⭱ インポート</button>
+    <input type="file" id="importFile" accept="application/json" style="display:none;">
+  </div>
+
+  <div class="tabs no-print">
+    <div class="tab active" data-tab="input">入力・集計</div>
+    <div class="tab" data-tab="preview">材料手配書プレビュー</div>
+  </div>
+
+  <!-- ============ INPUT PANEL ============ -->
+  <div class="panel active" id="panel-input">
+
+    <div class="card">
+      <h2>会社情報(材料手配書ヘッダー)</h2>
+      <div class="grid">
+        <div class="field"><label>会社名</label><input id="companyName" type="text" placeholder="株式会社〇〇"></div>
+        <div class="field"><label>ロゴ画像</label><input id="companyLogoFile" type="file" accept="image/*"></div>
+      </div>
+      <div style="margin-top:10px; display:flex; align-items:center; gap:10px;">
+        <img id="companyLogoPreview" style="display:none; max-height:50px; max-width:160px; object-fit:contain; border:1px solid var(--line); border-radius:4px; padding:4px; background:#fff;">
+        <button class="btn ghost" id="companyLogoRemoveBtn" style="display:none; background:#EFEBE2; color:var(--ink); border-color:var(--line);">ロゴを削除</button>
+      </div>
+      <div class="note">ここで設定した会社名・ロゴは「材料手配書プレビュー」のヘッダーに表示されます(すべての現場で共通です)。</div>
+    </div>
+
+    <div class="card">
+      <h2>現場情報</h2>
+      <div class="grid">
+        <div class="field"><label>現場・案件名</label><input id="f_siteName" type="text" placeholder="〇〇工場 架台工事"></div>
+        <div class="field"><label>作成日</label><input id="f_date" type="date"></div>
+        <div class="field"><label>担当者</label><input id="f_person" type="text" placeholder="山田"></div>
+        <div class="field"><label>既定単価(円/kg)</label><input id="f_defaultPrice" type="number" step="1" placeholder="500"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>部材を追加</h2>
+      <div class="radiorow">
+        <label><input type="radio" name="itemType" value="shape" checked> 形鋼(H形鋼・角パイプ・アングル・溝形鋼)</label>
+        <label><input type="radio" name="itemType" value="plate"> 鉄板</label>
+      </div>
+
+      <!-- 形鋼フォーム -->
+      <div id="form-shape" style="margin-top:12px;">
+        <div class="grid">
+          <div class="field"><label>種別</label>
+            <select id="s_category"></select>
+          </div>
+          <div class="field" id="s_sizeWrap"><label>サイズ(規格)</label>
+            <select id="s_size"><option value="">選択してください</option></select>
+          </div>
+          <div class="field" id="s_fbWidthWrap" style="display:none;"><label>幅(mm)</label><input id="s_fbWidth" type="number" step="1"></div>
+          <div class="field" id="s_fbThickWrap" style="display:none;"><label>厚さ(mm)</label><input id="s_fbThick" type="number" step="0.1"></div>
+          <div class="field" id="s_rbDiaWrap" style="display:none;"><label>直径(mm)</label><input id="s_rbDia" type="number" step="0.1"></div>
+          <div class="field" id="s_pipeODWrap" style="display:none;"><label>外径(mm)</label><input id="s_pipeOD" type="number" step="0.1"></div>
+          <div class="field" id="s_pipeThickWrap" style="display:none;"><label>肉厚(mm)</label><input id="s_pipeThick" type="number" step="0.1"></div>
+          <div class="field"><label>部材名(記号)</label><input id="s_name" type="text" placeholder="C1"></div>
+          <div class="field"><label>材質</label>
+            <select id="s_material"></select>
+          </div>
+          <div class="field" id="s_customDensityWrap" style="display:none;"><label>比重(g/cm³)</label><input id="s_customDensity" type="number" step="0.01" value="7.85"></div>
+          <div class="field"><label>長さ(mm)</label><input id="s_length" type="number" step="1"></div>
+          <div class="field"><label>本数</label><input id="s_qty" type="number" step="1" value="1"></div>
+          <div class="field"><label>単価(円/kg・任意)</label><input id="s_price" type="number" step="1" placeholder="既定値を使用"></div>
+        </div>
+        <div class="note" id="s_calcPreview"></div>
+        <div style="margin-top:12px; display:flex; gap:8px;">
+          <button class="btn rust" id="s_addBtn">＋ リストに追加</button>
+          <button class="btn ghost" id="s_favBtn" style="background:#EFEBE2; color:var(--ink); border-color:var(--line);">☆ お気に入りに登録</button>
+        </div>
+      </div>
+
+      <!-- 鉄板フォーム -->
+      <div id="form-plate" style="margin-top:12px; display:none;">
+        <div class="radiorow">
+          <label><input type="radio" name="plateMode" value="dims" checked> 縦×横で入力</label>
+          <label><input type="radio" name="plateMode" value="area"> 面積を直接入力</label>
+        </div>
+        <div class="grid" style="margin-top:10px;">
+          <div class="field" id="p_dimsW"><label>縦(mm)</label><input id="p_h" type="number" step="1"></div>
+          <div class="field" id="p_dimsW2"><label>横(mm)</label><input id="p_w" type="number" step="1"></div>
+          <div class="field" id="p_areaW" style="display:none;"><label>面積(m²)</label><input id="p_area" type="number" step="0.001"></div>
+          <div class="field"><label>厚さ(mm)</label><input id="p_t" type="number" step="0.1"></div>
+          <div class="field"><label>部材名</label><input id="p_name" type="text" placeholder="ベースプレート"></div>
+          <div class="field"><label>材質</label>
+            <select id="p_material"></select>
+          </div>
+          <div class="field" id="p_customDensityWrap" style="display:none;"><label>比重(g/cm³)</label><input id="p_customDensity" type="number" step="0.01" value="7.85"></div>
+          <div class="field"><label>枚数</label><input id="p_qty" type="number" step="1" value="1"></div>
+          <div class="field"><label>単価(円/kg・任意)</label><input id="p_price" type="number" step="1" placeholder="既定値を使用"></div>
+        </div>
+        <div class="note" id="p_calcPreview"></div>
+        <div style="margin-top:12px; display:flex; gap:8px;">
+          <button class="btn rust" id="p_addBtn">＋ リストに追加</button>
+          <button class="btn ghost" id="p_favBtn" style="background:#EFEBE2; color:var(--ink); border-color:var(--line);">☆ お気に入りに登録</button>
+        </div>
+      </div>
+
+      <div class="note">形鋼の単位重量はJIS規格相当の<b>参考値</b>です。発注前は最新の規格表と照合してください。表の値は追加後も編集できます。
+        <br>単位重量には <span class="tag ref">参考</span> (規格表からの参考値) と <span class="tag calc">計算</span> (寸法・比重から正確に算出した値) のラベルが付きます。</div>
+    </div>
+
+    <div class="card" id="favoritesCard">
+      <h2>お気に入り</h2>
+      <div id="favoritesList"></div>
+      <div class="note">「☆ お気に入りに登録」でサイズ・材質・単価の組み合わせを保存できます。数量(・長さ)を入力して「追加」を押すと部材リストに直接追加されます。お気に入りは全ての現場で共通です。</div>
+    </div>
+
+    <div class="card">
+      <h2>部材リスト</h2>
+      <div style="overflow-x:auto;">
+        <table id="itemsTable">
+          <thead>
+            <tr>
+              <th>部材名</th><th>種別/仕様</th><th>材質</th>
+              <th class="num">単位重量</th><th class="num">数量</th><th class="num">重量計(kg)</th>
+              <th class="num">単価(円/kg)</th><th class="num">金額(円)</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="itemsBody"></tbody>
+        </table>
+      </div>
+      <div class="totals">
+        <div class="box"><div class="lbl">合計重量</div><div class="val mono" id="totalWeight">0.0 kg</div></div>
+        <div class="box"><div class="lbl">合計金額</div><div class="val money mono" id="totalPrice">¥0</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PREVIEW PANEL ============ -->
+  <div class="panel" id="panel-preview">
+    <div class="no-print" style="margin-bottom:12px; text-align:right;">
+      <button class="btn" id="printBtn">🖶 印刷 / PDF保存</button>
+    </div>
+    <div id="preview">
+      <div class="doc-company-bar" id="pv_companyBar" style="display:none;">
+        <img id="pv_logo" style="display:none;">
+        <div id="pv_companyName"></div>
+      </div>
+      <div class="doc-head">
+        <h2>材料手配書</h2>
+        <div class="doc-meta">
+          <div class="r"><span>現場・案件</span><span id="pv_site">-</span></div>
+          <div class="r"><span>作成日</span><span id="pv_date">-</span></div>
+          <div class="r"><span>担当者</span><span id="pv_person">-</span></div>
+        </div>
+      </div>
+      <table class="doc-table">
+        <thead>
+          <tr><th>No</th><th>品名</th><th>規格・仕様</th><th>材質</th><th class="num">数量</th><th class="num">単位重量</th><th class="num">重量(kg)</th><th class="num">単価(円/kg)</th><th class="num">金額(円)</th></tr>
+        </thead>
+        <tbody id="pv_body"></tbody>
+      </table>
+      <div class="doc-grand">
+        <div class="stamp">
+          <div class="l">合計重量 <span class="mono" id="pv_weight">0.0 kg</span></div>
+          <div class="v mono" id="pv_price">¥0</div>
+        </div>
+      </div>
+      <div class="doc-foot">鋼材重量計算・材料集計アプリで作成 / 形鋼の単位重量はJIS規格相当の参考値です。</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="sticky-summary no-print" id="stickySummary">
+  <div class="ss-item"><span class="ss-label">合計重量</span><span class="ss-val mono" id="stickyTotalWeight">0.0 kg</span></div>
+  <div class="ss-item"><span class="ss-label">合計金額</span><span class="ss-val mono money" id="stickyTotalPrice">¥0</span></div>
+</div>
+
+<!-- 新規プロジェクトモーダル -->
+<div class="proj-modal-bg" id="modalBg">
+  <div class="proj-modal">
+    <h3>新規現場を作成</h3>
+    <div class="field"><label>現場・案件名</label><input id="modalName" type="text" placeholder="〇〇工場 架台工事"></div>
+    <div class="row">
+      <button class="btn ghost" id="modalCancel" style="background:#e5e1d6; color:#333; border-color:#ccc;">キャンセル</button>
+      <button class="btn rust" id="modalCreate">作成</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =============== 規格データ (参考値・g/cm3=7.85鋼基準 kg/m) =============== */
+const STEEL_DATA = {
+  "H形鋼": [
+    ["100x50x5x7",9.30],["100x100x6x8",17.2],
+    ["125x60x6x8",13.2],["125x125x6.5x9",23.8],["148x100x6x9",20.7],
+    ["150x75x5x7",14.0],["150x150x7x10",31.5],
+    ["175x90x5x8",18.8],["175x175x7.5x11",40.4],["198x99x4.5x7",17.8],
+    ["200x100x5.5x8",21.3],["200x100x8x12",30.1],
+    ["200x200x8x12",49.9],["200x200x12x12",64.4],
+    ["248x124x5x8",25.7],["250x125x6x9",29.6],["250x125x9x14",39.9],
+    ["250x250x9x14",82.2],["250x250x14x14",92.2],
+    ["298x149x5.5x8",32.0],["300x150x6.5x9",36.7],["300x150x9x16",47.7],
+    ["300x300x10x15",106.0],["300x300x15x15",133.0],["300x300x18x18",156.0],
+    ["346x174x6x9",41.4],["350x175x7x11",49.6],
+    ["350x350x12x19",137.0],["350x350x19x19",173.0],
+    ["396x199x7x11",56.1],["400x200x8x13",66.0],
+    ["400x400x13x21",172.0],["400x400x21x21",234.0],
+    ["446x199x8x12",65.4],["450x200x9x14",76.0],
+    ["496x199x9x14",79.5],["546x199x9x14",89.6],["596x199x10x15",108.0],
+    ["500x200x10x16",89.6],["588x300x12x20",151.0],["600x200x11x17",106.0],
+    ["700x300x13x24",185.0],["800x300x14x26",210.0],
+    ["900x300x16x28",243.0],["900x300x18x34",291.0]
+  ],
+  "角形鋼管": [
+    ["50x50x2.3",3.28],["50x50x3.2",4.39],["60x60x2.3",4.00],["60x60x3.2",5.44],
+    ["75x75x2.3",5.08],["75x75x3.2",6.89],["75x75x4.5",9.36],
+    ["90x90x3.2",8.36],["90x90x4.5",11.5],
+    ["100x100x3.2",9.52],["100x100x4.5",13.1],["100x100x6.0",17.0],
+    ["125x125x4.5",16.5],["125x125x6.0",21.4],["125x125x9.0",26.2],
+    ["150x150x4.5",20.0],["150x150x6.0",26.0],["150x150x9.0",37.6],["150x150x12.0",47.2],
+    ["175x175x6.0",30.6],["175x175x9.0",44.6],["175x175x12.0",55.8],
+    ["200x200x6.0",35.3],["200x200x9.0",51.7],["200x200x12.0",66.8],
+    ["250x250x9.0",65.2],["250x250x12.0",84.8],
+    ["300x300x9.0",78.9],["300x300x12.0",103.0],["300x300x16.0",132.0],
+    ["350x350x12.0",121.0],["400x400x12.0",139.0],["400x400x16.0",183.0]
+  ],
+  "溝形鋼": [
+    ["75x40x5x7",6.92],["100x50x5x7.5",9.36],["125x65x6x8",13.4],
+    ["150x75x6.5x10",18.6],["180x75x7x10.5",20.9],["200x80x7.5x11",24.3],
+    ["200x90x8x13.5",30.6],["250x90x9x13",34.0],["300x90x9x13",36.5],
+    ["300x90x10x15.5",40.8],["380x100x10.5x16",52.5],["400x100x10.5x18",56.3]
+  ],
+  "山形鋼(アングル)": [
+    ["25x25x3",1.12],["30x30x3",1.36],["40x40x3",1.83],["40x40x5",2.95],
+    ["45x45x4",2.66],["45x45x5",3.31],["50x50x4",3.00],["50x50x5",3.68],
+    ["50x50x6",4.43],["60x60x4",3.68],["60x60x5",4.55],["60x60x6",5.42],
+    ["65x65x5",4.97],["65x65x6",5.91],["65x65x8",7.66],
+    ["70x70x6",6.37],["75x75x6",6.85],["75x75x9",9.94],["75x75x12",12.9],
+    ["80x80x6",7.36],["80x80x8",9.66],
+    ["90x90x6",8.29],["90x90x7",9.61],["90x90x10",13.3],["90x90x13",16.8],
+    ["100x100x7",10.7],["100x100x10",14.9],["100x100x13",19.0],["100x100x15",21.5],
+    ["120x120x8",14.7],["120x120x11",19.9],
+    ["130x130x9",17.9],["130x130x12",23.4],["130x130x15",28.7],
+    ["150x150x12",27.3],["150x150x15",33.6],["150x150x19",41.9],
+    ["175x175x12",32.1],["175x175x14",37.2],
+    ["200x200x15",45.8],["200x200x20",59.9],["200x200x25",73.5]
+  ],
+  "平鋼": "formula-flatbar",
+  "丸鋼": "formula-roundbar",
+  "鋼管(丸パイプ)": "formula-pipe",
+  "山形鋼(不等辺アングル)": [
+    ["90x75x9",11.0],["100x75x7",9.44],["100x75x10",13.1],
+    ["125x75x7",10.9],["125x75x10",15.3],["125x90x10",16.5],
+    ["150x90x9",16.2],["150x90x12",21.3],["150x100x9",17.0],["150x100x12",22.3],
+    ["175x90x12",24.0],["175x100x12",25.0],
+    ["200x90x14",30.9],["200x100x14",32.1],["200x150x12",32.4],["200x150x15",40.0],
+    ["250x90x14",36.9],["250x150x15",46.0]
+  ],
+  "軽溝形鋼": [
+    ["60x30x10x1.6",1.53],["75x35x10x1.6",1.81],["75x45x15x1.6",2.07],
+    ["90x45x15x1.6",2.29],["100x50x20x1.6",2.58],["100x50x20x2.3",3.61],
+    ["120x40x20x2.3",3.35],["120x60x20x2.3",4.03],["150x50x20x2.3",3.87],
+    ["150x65x20x2.3",4.43],["180x60x20x2.3",4.87],["200x75x20x2.3",5.87],
+    ["200x75x20x3.2",8.00]
+  ],
+  "リップ溝形鋼": [
+    ["60x30x10x1.6",1.68],["60x30x10x2.3",2.31],["75x45x15x1.6",2.13],
+    ["75x45x15x2.3",2.95],["90x45x15x2.3",3.28],
+    ["100x50x20x1.6",2.58],["100x50x20x2.3",3.61],["100x50x20x3.2",4.83],
+    ["120x40x20x2.3",3.61],["120x60x20x2.3",4.29],
+    ["150x50x20x2.3",4.43],["150x65x20x2.3",5.09],["150x65x20x3.2",6.85],
+    ["180x60x20x2.3",5.19],["180x75x20x3.2",8.36],
+    ["200x75x20x2.3",6.35],["200x75x20x3.2",8.62],
+    ["250x75x25x3.2",9.68],["250x75x25x4.0",11.9],
+    ["300x90x25x3.2",11.6],["300x90x25x4.5",16.0]
+  ]
+};
+const MATERIALS = [
+  ["鉄(鋼) SS400等", 7.85],
+  ["ステンレス鋼(SUS304等)", 7.93],
+  ["アルミニウム", 2.70],
+  ["銅", 8.96],
+  ["custom", null]
+];
+
+/* =============== state =============== */
+let projects = [];       // [{id,name}]
+let currentProjectId = null;
+let currentProject = null; // {id,name,siteName,date,person,defaultPrice,items:[]}
+
+const $ = id => document.getElementById(id);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const yen = n => "¥" + Math.round(n).toLocaleString("ja-JP");
+const kg = n => n.toFixed(1) + " kg";
+
+/* =============== storage =============== */
+async function loadProjectList(){
+  try{ const r = await window.storage.get('project-list', false); return r ? JSON.parse(r.value) : []; }
+  catch(e){ return []; }
+}
+async function saveProjectList(list){
+  try{ await window.storage.set('project-list', JSON.stringify(list), false); }catch(e){}
+}
+async function loadProject(id){
+  try{ const r = await window.storage.get('project:'+id, false); return r ? JSON.parse(r.value) : null; }
+  catch(e){ return null; }
+}
+async function saveProject(p){
+  try{ await window.storage.set('project:'+p.id, JSON.stringify(p), false); }catch(e){}
+}
+async function deleteProjectStorage(id){
+  try{ await window.storage.delete('project:'+id, false); }catch(e){}
+}
+async function loadFavorites(){
+  try{ const r = await window.storage.get('favorites-list', false); return r ? JSON.parse(r.value) : []; }
+  catch(e){ return []; }
+}
+async function saveFavoritesList(list){
+  try{ await window.storage.set('favorites-list', JSON.stringify(list), false); }catch(e){}
+}
+async function loadCompanyInfo(){
+  try{ const r = await window.storage.get('company-info', false); return r ? JSON.parse(r.value) : {name:"", logo:null}; }
+  catch(e){ return {name:"", logo:null}; }
+}
+async function saveCompanyInfo(info){
+  try{ await window.storage.set('company-info', JSON.stringify(info), false); }catch(e){}
+}
+
+function newProjectObj(name){
+  return { id: uid(), name: name, siteName: name, date: new Date().toISOString().slice(0,10),
+    person:"", defaultPrice:500, items:[] };
+}
+
+/* =============== init =============== */
+let favorites = [];
+let companyInfo = {name:"", logo:null};
+async function init(){
+  populateSelects();
+  projects = await loadProjectList();
+  if(projects.length === 0){
+    const p = newProjectObj("現場A");
+    projects = [{id:p.id, name:p.name}];
+    await saveProjectList(projects);
+    await saveProject(p);
+  }
+  currentProjectId = projects[0].id;
+  currentProject = await loadProject(currentProjectId);
+  if(!currentProject) currentProject = newProjectObj(projects[0].name);
+  if(migrateProjectItems(currentProject)) await saveProject(currentProject);
+  favorites = await loadFavorites();
+  companyInfo = await loadCompanyInfo();
+  renderProjectSelect();
+  loadProjectIntoForm();
+  renderItems();
+  renderFavorites();
+  $('companyName').value = companyInfo.name || "";
+  updateCompanyLogoUI();
+  bindEvents();
+  updatePreviewCalc();
+}
+
+/* 過去バージョンで作成された部材データに、編集機能で必要なフィールド(weightPerM/density/寸法など)を
+   既存の重量・仕様テキストから逆算して補完する。NaN化を防ぐための後方互換対応。 */
+function migrateProjectItems(project){
+  let changed = false;
+  (project.items||[]).forEach(it=>{
+    if(it.rawQty == null){
+      const m = (it.qtyLabel||"").match(/^([\d.]+)/);
+      it.rawQty = m ? parseFloat(m[1]) : 1;
+      changed = true;
+    }
+    if(it.unitLabel == null){
+      it.unitLabel = it.type === "shape" ? "本" : "枚";
+      changed = true;
+    }
+    if(it.type === "shape"){
+      if(it.lengthMm == null){
+        const m = (it.qtyLabel||"").match(/L=([\d.]+)mm/);
+        it.lengthMm = m ? parseFloat(m[1]) : 0;
+        changed = true;
+      }
+      if(!(it.weightPerM > 0)){
+        if(it.rawQty>0 && it.lengthMm>0 && it.weight>0){
+          it.weightPerM = it.weight / (it.rawQty * (it.lengthMm/1000));
+        } else {
+          it.weightPerM = it.weightPerM || 0;
+        }
+        changed = true;
+      }
+      if(it.isReference == null){ it.isReference = true; changed = true; }
+    } else if(it.type === "plate"){
+      if(it.tMm == null || (it.hMm == null && it.areaM2 == null)){
+        let m = (it.spec||"").match(/鉄板 ([\d.]+)×([\d.]+)×t([\d.]+)mm/);
+        if(m){
+          it.plateMode = it.plateMode || "dims";
+          if(it.hMm == null) it.hMm = parseFloat(m[1]);
+          if(it.wMm == null) it.wMm = parseFloat(m[2]);
+          if(it.tMm == null) it.tMm = parseFloat(m[3]);
+          if(it.areaM2 == null) it.areaM2 = (it.hMm/1000) * (it.wMm/1000);
+        } else {
+          m = (it.spec||"").match(/鉄板 ([\d.]+)m²×t([\d.]+)mm/);
+          if(m){
+            it.plateMode = it.plateMode || "area";
+            if(it.areaM2 == null) it.areaM2 = parseFloat(m[1]);
+            if(it.tMm == null) it.tMm = parseFloat(m[2]);
+          }
+        }
+        changed = true;
+      }
+      if(!(it.density > 0)){
+        const perSheet = it.rawQty ? it.weight / it.rawQty : 0;
+        if(it.areaM2>0 && it.tMm>0 && perSheet>0){
+          it.density = perSheet / (it.areaM2 * (it.tMm/1000) * 1000);
+        } else {
+          it.density = 7.85;
+        }
+        changed = true;
+      }
+    }
+  });
+  return changed;
+}
+
+function populateSelects(){
+  const catSel = $('s_category');
+  Object.keys(STEEL_DATA).forEach(cat=>{
+    const o = document.createElement('option'); o.value=cat; o.textContent=cat; catSel.appendChild(o);
+  });
+  populateSizeSelect();
+  [ $('s_material'), $('p_material') ].forEach(sel=>{
+    MATERIALS.forEach(([label,d])=>{
+      const o = document.createElement('option');
+      o.value = label==="custom" ? "custom" : d;
+      o.textContent = label==="custom" ? "カスタム(比重入力)" : label;
+      sel.appendChild(o);
+    });
+  });
+}
+function isFormulaCategory(cat){
+  const m = STEEL_DATA[cat];
+  return m === "formula-flatbar" || m === "formula-roundbar" || m === "formula-pipe";
+}
+function populateSizeSelect(){
+  const cat = $('s_category').value || Object.keys(STEEL_DATA)[0];
+  updateShapeFormMode(cat);
+  if(isFormulaCategory(cat)) return;
+  const sizeSel = $('s_size');
+  sizeSel.innerHTML = '<option value="">選択してください</option>';
+  STEEL_DATA[cat].forEach(([size,w])=>{
+    const o = document.createElement('option');
+    o.value = size; o.dataset.weight = w;
+    o.textContent = size + "  (" + w + " kg/m)";
+    sizeSel.appendChild(o);
+  });
+}
+function updateShapeFormMode(cat){
+  const mode = STEEL_DATA[cat];
+  $('s_sizeWrap').style.display = isFormulaCategory(cat) ? 'none' : '';
+  $('s_fbWidthWrap').style.display = mode === "formula-flatbar" ? '' : 'none';
+  $('s_fbThickWrap').style.display = mode === "formula-flatbar" ? '' : 'none';
+  $('s_rbDiaWrap').style.display = mode === "formula-roundbar" ? '' : 'none';
+  $('s_pipeODWrap').style.display = mode === "formula-pipe" ? '' : 'none';
+  $('s_pipeThickWrap').style.display = mode === "formula-pipe" ? '' : 'none';
+}
+
+/* =============== project UI =============== */
+function renderProjectSelect(){
+  const sel = $('projectSelect');
+  sel.innerHTML = "";
+  projects.forEach(p=>{
+    const o = document.createElement('option'); o.value=p.id; o.textContent=p.name;
+    if(p.id===currentProjectId) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+function loadProjectIntoForm(){
+  $('f_siteName').value = currentProject.siteName || "";
+  $('f_date').value = currentProject.date || "";
+  $('f_person').value = currentProject.person || "";
+  $('f_defaultPrice').value = currentProject.defaultPrice ?? 500;
+}
+async function persistProjectMeta(){
+  currentProject.siteName = $('f_siteName').value;
+  currentProject.date = $('f_date').value;
+  currentProject.person = $('f_person').value;
+  currentProject.defaultPrice = parseFloat($('f_defaultPrice').value) || 0;
+  const idx = projects.findIndex(p=>p.id===currentProjectId);
+  if(idx>-1){ projects[idx].name = currentProject.siteName || projects[idx].name; }
+  await saveProject(currentProject);
+  await saveProjectList(projects);
+  renderProjectSelect();
+}
+
+/* =============== item calc helpers =============== */
+function getMaterialDensity(selectEl, customEl){
+  const v = selectEl.value;
+  if(v === "custom") return parseFloat(customEl.value) || 7.85;
+  return parseFloat(v);
+}
+function shapeCalc(){
+  const cat = $('s_category').value;
+  const density = getMaterialDensity($('s_material'), $('s_customDensity'));
+  const lengthM = (parseFloat($('s_length').value) || 0) / 1000;
+  const qty = parseFloat($('s_qty').value) || 0;
+  let scaledWeightPerM = 0, size = "", isReference = false;
+
+  const mode = STEEL_DATA[cat];
+  if(mode === "formula-flatbar"){
+    const w = parseFloat($('s_fbWidth').value) || 0;
+    const t = parseFloat($('s_fbThick').value) || 0;
+    scaledWeightPerM = w * t * density * 0.001; // area(mm2) x density(g/cm3) x 0.001 = kg/m
+    size = w>0 && t>0 ? (w+"x"+t) : "";
+    isReference = false;
+  } else if(mode === "formula-roundbar"){
+    const d = parseFloat($('s_rbDia').value) || 0;
+    scaledWeightPerM = (Math.PI/4) * d * d * density * 0.001;
+    size = d>0 ? ("φ"+d) : "";
+    isReference = false;
+  } else if(mode === "formula-pipe"){
+    const od = parseFloat($('s_pipeOD').value) || 0;
+    const t = parseFloat($('s_pipeThick').value) || 0;
+    const area = Math.PI * t * (od - t); // mm2, hollow ring cross-section
+    scaledWeightPerM = area>0 ? area * density * 0.001 : 0;
+    size = (od>0 && t>0) ? ("φ"+od+"xt"+t) : "";
+    isReference = false;
+  } else {
+    const opt = $('s_size').selectedOptions[0];
+    const baseWeight = (opt && opt.value) ? parseFloat(opt.dataset.weight) : 0; // kg/m at density 7.85
+    scaledWeightPerM = baseWeight * (density/7.85);
+    size = (opt && opt.value) ? opt.value : "";
+    isReference = true;
+  }
+  const totalWeight = scaledWeightPerM * lengthM * qty;
+  return { cat, size, weightPerM: scaledWeightPerM, lengthM, qty, totalWeight, density, isReference };
+}
+function plateCalc(){
+  const mode = document.querySelector('input[name=plateMode]:checked').value;
+  const tMm = parseFloat($('p_t').value) || 0;
+  const t = tMm / 1000;
+  let areaM2, hMm=null, wMm=null;
+  let dimsLabel;
+  if(mode === "dims"){
+    hMm = parseFloat($('p_h').value) || 0;
+    wMm = parseFloat($('p_w').value) || 0;
+    areaM2 = (hMm/1000)*(wMm/1000);
+    dimsLabel = hMm+"×"+wMm+"×t"+tMm;
+  } else {
+    areaM2 = parseFloat($('p_area').value) || 0;
+    dimsLabel = areaM2+"m²×t"+tMm;
+  }
+  const density = getMaterialDensity($('p_material'), $('p_customDensity'));
+  const qty = parseFloat($('p_qty').value) || 0;
+  const unitWeight = areaM2 * t * density * 1000; // kg per sheet
+  const totalWeight = unitWeight * qty;
+  return { dimsLabel, unitWeight, qty, totalWeight, density, t, mode, hMm, wMm, areaM2, tMm };
+}
+
+function updateShapePreview(){
+  const c = shapeCalc();
+  $('s_calcPreview').innerHTML = c.size ?
+    `単位重量: <b>${c.weightPerM.toFixed(2)} kg/m</b>　→　1本あたり ${(c.weightPerM*c.lengthM).toFixed(2)} kg　×${c.qty}本 = <b>${c.totalWeight.toFixed(1)} kg</b>` : "";
+}
+function updatePlatePreview(){
+  const c = plateCalc();
+  $('p_calcPreview').innerHTML = `1枚あたり <b>${c.unitWeight.toFixed(2)} kg</b>　×${c.qty}枚 = <b>${c.totalWeight.toFixed(1)} kg</b>`;
+}
+
+/* =============== items list =============== */
+function addShapeItem(){
+  const c = shapeCalc();
+  if(!c.size || c.qty<=0){ alert("サイズと本数を確認してください。"); return; }
+  const price = parseFloat($('s_price').value);
+  const unitPrice = isNaN(price) ? (currentProject.defaultPrice||0) : price;
+  currentProject.items.push({
+    id: uid(), type:"shape",
+    name: $('s_name').value || c.cat,
+    spec: c.cat + " " + c.size,
+    material: $('s_material').selectedOptions[0].textContent,
+    unitWeightLabel: c.weightPerM.toFixed(2) + " kg/m",
+    weightPerM: c.weightPerM,
+    qtyLabel: c.qty + "本 (L=" + ($('s_length').value||0) + "mm)",
+    weight: c.totalWeight,
+    unitPrice, amount: c.totalWeight*unitPrice,
+    rawQty: c.qty, unitLabel:"本", lengthMm: parseFloat($('s_length').value)||0,
+    isReference: c.isReference
+  });
+  $('s_name').value=""; $('s_length').value=""; $('s_price').value=""; $('s_size').value="";
+  $('s_fbWidth').value=""; $('s_fbThick').value=""; $('s_rbDia').value="";
+  $('s_pipeOD').value=""; $('s_pipeThick').value="";
+  afterAdd();
+}
+function addPlateItem(){
+  const c = plateCalc();
+  if(c.qty<=0){ alert("枚数を確認してください。"); return; }
+  const price = parseFloat($('p_price').value);
+  const unitPrice = isNaN(price) ? (currentProject.defaultPrice||0) : price;
+  currentProject.items.push({
+    id: uid(), type:"plate",
+    name: $('p_name').value || "鉄板",
+    spec: "鉄板 " + c.dimsLabel + "mm",
+    material: $('p_material').selectedOptions[0].textContent,
+    unitWeightLabel: c.unitWeight.toFixed(2) + " kg/枚",
+    qtyLabel: c.qty + "枚",
+    weight: c.totalWeight,
+    unitPrice, amount: c.totalWeight*unitPrice,
+    rawQty: c.qty, unitLabel:"枚", isReference:false,
+    plateMode: c.mode, hMm: c.hMm, wMm: c.wMm, areaM2: c.areaM2, tMm: c.tMm, density: c.density
+  });
+  $('p_name').value=""; $('p_price').value="";
+  afterAdd();
+}
+async function afterAdd(){
+  await saveProject(currentProject);
+  renderItems();
+  updatePreviewCalc();
+}
+async function removeItem(id){
+  currentProject.items = currentProject.items.filter(i=>i.id!==id);
+  await saveProject(currentProject);
+  renderItems();
+  updatePreviewCalc();
+}
+
+/* =============== favorites =============== */
+function getBaseWeightForSize(cat, sizeStr){
+  const e = (STEEL_DATA[cat]||[]).find(([s])=>s===sizeStr);
+  return e ? e[1] : 0;
+}
+function favModeOf(cat){
+  const m = STEEL_DATA[cat];
+  if(m === "formula-flatbar") return "flatbar";
+  if(m === "formula-roundbar") return "roundbar";
+  if(m === "formula-pipe") return "pipe";
+  return "table";
+}
+function favSizeLabel(fav){
+  if(fav.mode === "table") return fav.size;
+  if(fav.mode === "flatbar") return fav.fbWidth+"x"+fav.fbThick;
+  if(fav.mode === "roundbar") return "φ"+fav.rbDia;
+  if(fav.mode === "pipe") return "φ"+fav.pipeOD+"xt"+fav.pipeThick;
+  return "";
+}
+async function saveShapeFavorite(){
+  const c = shapeCalc();
+  if(!c.size){ alert("先にサイズ・寸法を入力してください。"); return; }
+  const cat = $('s_category').value;
+  const materialSel = $('s_material');
+  const materialLabel = materialSel.selectedOptions[0].textContent;
+  const price = parseFloat($('s_price').value);
+  const fav = {
+    id: uid(), itemType: "shape",
+    category: cat, mode: favModeOf(cat), size: c.size,
+    fbWidth: parseFloat($('s_fbWidth').value)||null,
+    fbThick: parseFloat($('s_fbThick').value)||null,
+    rbDia: parseFloat($('s_rbDia').value)||null,
+    pipeOD: parseFloat($('s_pipeOD').value)||null,
+    pipeThick: parseFloat($('s_pipeThick').value)||null,
+    density: c.density, materialLabel,
+    unitPrice: isNaN(price) ? (currentProject.defaultPrice||0) : price
+  };
+  fav.label = cat + " " + favSizeLabel(fav) + " / " + materialLabel;
+  favorites.push(fav);
+  await saveFavoritesList(favorites);
+  renderFavorites();
+}
+async function savePlateFavorite(){
+  const c = plateCalc();
+  if(!(c.areaM2>0) || !(c.tMm>0)){ alert("先に寸法・厚さを入力してください。"); return; }
+  const materialSel = $('p_material');
+  const materialLabel = materialSel.selectedOptions[0].textContent;
+  const price = parseFloat($('p_price').value);
+  const fav = {
+    id: uid(), itemType: "plate",
+    plateMode: c.mode, h: c.hMm, w: c.wMm, area: c.areaM2, t: c.tMm,
+    density: c.density, materialLabel,
+    unitPrice: isNaN(price) ? (currentProject.defaultPrice||0) : price
+  };
+  fav.label = "鉄板 " + c.dimsLabel + "mm / " + materialLabel;
+  favorites.push(fav);
+  await saveFavoritesList(favorites);
+  renderFavorites();
+}
+async function deleteFavorite(id){
+  favorites = favorites.filter(f=>f.id!==id);
+  await saveFavoritesList(favorites);
+  renderFavorites();
+}
+function renderFavorites(){
+  const wrap = $('favoritesList');
+  if(favorites.length === 0){
+    wrap.innerHTML = `<div class="fav-empty">登録済みのお気に入りはありません。上のフォームで内容を入力し「☆ お気に入りに登録」を押してください。</div>`;
+    return;
+  }
+  wrap.innerHTML = "";
+  favorites.forEach(fav=>{
+    const row = document.createElement('div');
+    row.className = 'fav-row';
+    row.dataset.favRow = fav.id;
+    const qtyUnit = fav.itemType === "shape" ? "本" : "枚";
+    row.innerHTML = `
+      <div class="fav-label">${escapeHtml(fav.label)}<span class="fav-sub">単価 ${fav.unitPrice.toLocaleString('ja-JP')}円/kg</span></div>
+      <div class="fav-inputs">
+        ${fav.itemType==="shape" ? `<span class="fav-len-wrap"><input type="number" step="1" placeholder="長さ" data-f="favLength" style="width:92px;"><span class="fav-unit">mm</span></span>` : ``}
+        <input type="number" step="1" value="1" placeholder="${qtyUnit}" data-f="favQty">
+        <button class="btn small rust" data-act="add" data-id="${fav.id}">＋ 追加</button>
+        <button class="del-btn" data-act="del" data-id="${fav.id}" title="削除">✕</button>
+      </div>
+    `;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll('[data-act="add"]').forEach(b=>{
+    b.addEventListener('click', ()=>addFromFavorite(b.dataset.id));
+  });
+  wrap.querySelectorAll('[data-act="del"]').forEach(b=>{
+    b.addEventListener('click', ()=>deleteFavorite(b.dataset.id));
+  });
+}
+async function addFromFavorite(favId){
+  const fav = favorites.find(f=>f.id===favId);
+  if(!fav) return;
+  const row = document.querySelector(`[data-fav-row="${favId}"]`);
+  const qty = parseFloat(row.querySelector('[data-f="favQty"]').value) || 0;
+  if(qty<=0){ alert("数量を入力してください。"); return; }
+
+  if(fav.itemType === "shape"){
+    const lengthField = row.querySelector('[data-f="favLength"]');
+    const length = parseFloat(lengthField.value) || 0;
+    if(length<=0){ alert("長さ(mm)を入力してください。"); return; }
+    let weightPerM = 0;
+    if(fav.mode === "table"){
+      weightPerM = getBaseWeightForSize(fav.category, fav.size) * (fav.density/7.85);
+    } else if(fav.mode === "flatbar"){
+      weightPerM = fav.fbWidth * fav.fbThick * fav.density * 0.001;
+    } else if(fav.mode === "roundbar"){
+      weightPerM = (Math.PI/4) * fav.rbDia * fav.rbDia * fav.density * 0.001;
+    } else if(fav.mode === "pipe"){
+      weightPerM = Math.PI * fav.pipeThick * (fav.pipeOD - fav.pipeThick) * fav.density * 0.001;
+    }
+    const totalWeight = weightPerM * (length/1000) * qty;
+    currentProject.items.push({
+      id: uid(), type:"shape",
+      name: fav.category,
+      spec: fav.category + " " + favSizeLabel(fav),
+      material: fav.materialLabel,
+      unitWeightLabel: weightPerM.toFixed(2) + " kg/m",
+      weightPerM,
+      qtyLabel: qty + "本 (L=" + length + "mm)",
+      weight: totalWeight,
+      unitPrice: fav.unitPrice, amount: totalWeight*fav.unitPrice,
+      rawQty: qty, unitLabel:"本", lengthMm: length,
+      isReference: fav.mode === "table"
+    });
+    lengthField.value = "";
+  } else {
+    const areaM2 = fav.plateMode === "dims" ? (fav.h/1000)*(fav.w/1000) : fav.area;
+    const unitWeight = areaM2 * (fav.t/1000) * fav.density * 1000;
+    const totalWeight = unitWeight * qty;
+    const dimsLabel = fav.plateMode === "dims" ? (fav.h+"×"+fav.w+"×t"+fav.t) : (fav.area+"m²×t"+fav.t);
+    currentProject.items.push({
+      id: uid(), type:"plate",
+      name: "鉄板",
+      spec: "鉄板 " + dimsLabel + "mm",
+      material: fav.materialLabel,
+      unitWeightLabel: unitWeight.toFixed(2) + " kg/枚",
+      qtyLabel: qty + "枚",
+      weight: totalWeight,
+      unitPrice: fav.unitPrice, amount: totalWeight*fav.unitPrice,
+      rawQty: qty, unitLabel:"枚", isReference:false,
+      plateMode: fav.plateMode, hMm: fav.h, wMm: fav.w, areaM2: fav.area, tMm: fav.t, density: fav.density
+    });
+  }
+  row.querySelector('[data-f="favQty"]').value = "1";
+  await saveProject(currentProject);
+  renderItems();
+  updatePreviewCalc();
+}
+
+/* =============== company header (logo / name) =============== */
+function updateCompanyLogoUI(){
+  const hasLogo = !!companyInfo.logo;
+  $('companyLogoPreview').style.display = hasLogo ? '' : 'none';
+  $('companyLogoPreview').src = companyInfo.logo || '';
+  $('companyLogoRemoveBtn').style.display = hasLogo ? '' : 'none';
+}
+function updateDocCompanyHeader(){
+  const bar = $('pv_companyBar');
+  const hasContent = !!(companyInfo.name || companyInfo.logo);
+  bar.style.display = hasContent ? 'flex' : 'none';
+  $('pv_companyName').textContent = companyInfo.name || '';
+  const logoEl = $('pv_logo');
+  if(companyInfo.logo){ logoEl.src = companyInfo.logo; logoEl.style.display = ''; }
+  else { logoEl.style.display = 'none'; }
+}
+function resizeImageToDataUrl(file, maxWidth){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > maxWidth){ h = Math.round(h * (maxWidth / w)); w = maxWidth; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = ()=>reject(new Error("画像の読み込みに失敗しました"));
+      img.src = reader.result;
+    };
+    reader.onerror = ()=>reject(new Error("ファイルの読み込みに失敗しました"));
+    reader.readAsDataURL(file);
+  });
+}
+async function handleLogoUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  if(!file.type.startsWith('image/')){ alert("画像ファイルを選択してください。"); e.target.value=""; return; }
+  try{
+    const dataUrl = await resizeImageToDataUrl(file, 320);
+    companyInfo.logo = dataUrl;
+    await saveCompanyInfo(companyInfo);
+    updateCompanyLogoUI();
+    updateDocCompanyHeader();
+  }catch(err){
+    alert("ロゴ画像の読み込みに失敗しました。");
+  }
+  e.target.value = "";
+}
+async function removeCompanyLogo(){
+  companyInfo.logo = null;
+  await saveCompanyInfo(companyInfo);
+  updateCompanyLogoUI();
+  updateDocCompanyHeader();
+}
+
+/* =============== export / import =============== */
+function downloadJSON(str, filename){
+  const blob = new Blob([str], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+function exportCurrentProject(){
+  const payload = { type:"single-project", exportedAt: new Date().toISOString(), project: currentProject };
+  downloadJSON(JSON.stringify(payload,null,2), (currentProject.siteName||"現場")+".json");
+}
+async function exportAllProjects(){
+  const projectData = {};
+  for(const p of projects){ projectData[p.id] = await loadProject(p.id); }
+  const payload = { type:"full-backup", exportedAt: new Date().toISOString(), projects, projectData, favorites };
+  downloadJSON(JSON.stringify(payload,null,2), "鋼材重量計算_全現場バックアップ.json");
+}
+async function handleImportFile(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if(data.type === "full-backup" && data.projectData){
+      for(const oldId of Object.keys(data.projectData)){
+        const proj = data.projectData[oldId];
+        if(!proj) continue;
+        migrateProjectItems(proj);
+        const newId = uid();
+        proj.id = newId;
+        projects.push({id:newId, name: proj.siteName || proj.name || "インポート現場"});
+        await saveProject(proj);
+      }
+      if(Array.isArray(data.favorites) && data.favorites.length){
+        favorites = favorites.concat(data.favorites.map(f=>({...f, id: uid()})));
+        await saveFavoritesList(favorites);
+      }
+      await saveProjectList(projects);
+      alert("全現場のバックアップを読み込みました。");
+    } else if(data.type === "single-project" && data.project){
+      const proj = data.project;
+      migrateProjectItems(proj);
+      const newId = uid();
+      proj.id = newId;
+      projects.push({id:newId, name: proj.siteName || proj.name || "インポート現場"});
+      await saveProject(proj);
+      await saveProjectList(projects);
+      currentProjectId = newId; currentProject = proj;
+      alert("現場データを読み込みました。");
+    } else {
+      alert("このファイルは対応していない形式です。");
+      return;
+    }
+    renderProjectSelect();
+    loadProjectIntoForm();
+    renderItems();
+    renderFavorites();
+    updatePreviewCalc();
+  }catch(err){
+    alert("ファイルの読み込みに失敗しました。JSON形式を確認してください。");
+  } finally {
+    e.target.value = "";
+  }
+}
+
+let editingItemId = null;
+
+function renderItems(){
+  const tbody = $('itemsBody');
+  tbody.innerHTML = "";
+  if(currentProject.items.length===0){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="9">部材が登録されていません。上のフォームから追加してください。</td></tr>`;
+  }
+  let totalW=0, totalP=0;
+  currentProject.items.forEach(it=>{
+    totalW += it.weight; totalP += it.amount;
+    const tr = document.createElement('tr');
+    const refTag = it.isReference ? '<span class="tag ref">参考</span>' : '<span class="tag calc">計算</span>';
+    const cellClass = it.isReference ? 'ref-cell' : 'calc-cell';
+
+    if(it.id === editingItemId){
+      tr.classList.add('editing-row');
+      const lengthInput = it.type==="shape"
+        ? `<input class="edit-cell-input mono" data-f="lengthMm" type="number" step="1" value="${it.lengthMm}" style="width:64px; display:inline-block; margin-top:4px;" placeholder="長さmm"> mm`
+        : "";
+      let specCell;
+      if(it.type === "plate"){
+        if(it.plateMode === "dims"){
+          specCell = `鉄板
+            <input class="edit-cell-input mono" data-f="plateH" type="number" step="1" value="${it.hMm}" style="width:56px;">×
+            <input class="edit-cell-input mono" data-f="plateW" type="number" step="1" value="${it.wMm}" style="width:56px;">
+            ×t<input class="edit-cell-input mono" data-f="plateT" type="number" step="0.1" value="${it.tMm}" style="width:48px;">mm`;
+        } else {
+          specCell = `鉄板 面積
+            <input class="edit-cell-input mono" data-f="plateArea" type="number" step="0.001" value="${it.areaM2}" style="width:72px;">m²
+            ×t<input class="edit-cell-input mono" data-f="plateT" type="number" step="0.1" value="${it.tMm}" style="width:48px;">mm`;
+        }
+      } else {
+        specCell = escapeHtml(it.spec);
+      }
+      tr.innerHTML = `
+        <td data-label="部材名"><input class="edit-cell-input" data-f="name" value="${escapeAttr(it.name)}"></td>
+        <td data-label="種別/仕様">${specCell}</td>
+        <td data-label="材質">${escapeHtml(it.material)}</td>
+        <td class="num mono ${cellClass}" data-label="単位重量">${it.unitWeightLabel} ${refTag}</td>
+        <td class="num" data-label="数量">
+          <input class="edit-cell-input mono" data-f="rawQty" type="number" step="1" value="${it.rawQty}" style="width:56px; text-align:right;"> ${escapeHtml(it.unitLabel)}
+          ${lengthInput ? "<br>"+lengthInput : ""}
+        </td>
+        <td class="num mono" data-label="重量計(kg)">${(it.weight).toFixed(1)}</td>
+        <td class="num" data-label="単価(円/kg)"><input class="edit-cell-input mono" data-f="unitPrice" type="number" step="1" value="${it.unitPrice}" style="width:70px; text-align:right;"></td>
+        <td class="num mono" data-label="金額(円)">${yen(it.amount)}</td>
+        <td class="row-actions">
+          <button class="edit-btn" data-id="${it.id}" data-act="save" title="保存">✓</button>
+          <button class="del-btn" data-id="${it.id}" data-act="cancel" title="キャンセル">✕</button>
+        </td>
+      `;
+    } else {
+      tr.innerHTML = `
+        <td data-label="部材名">${escapeHtml(it.name)}</td>
+        <td data-label="種別/仕様">${escapeHtml(it.spec)}</td>
+        <td data-label="材質">${escapeHtml(it.material)}</td>
+        <td class="num mono ${cellClass}" data-label="単位重量">${it.unitWeightLabel} ${refTag}</td>
+        <td class="num mono" data-label="数量">${it.qtyLabel}</td>
+        <td class="num mono" data-label="重量計(kg)">${it.weight.toFixed(1)}</td>
+        <td class="num mono" data-label="単価(円/kg)">${it.unitPrice.toLocaleString('ja-JP')}</td>
+        <td class="num mono" data-label="金額(円)">${yen(it.amount)}</td>
+        <td class="row-actions">
+          <button class="edit-btn" data-id="${it.id}" data-act="edit" title="編集">✎</button>
+          <button class="del-btn" data-id="${it.id}" data-act="delete" title="削除">✕</button>
+        </td>
+      `;
+    }
+    tbody.appendChild(tr);
+  });
+  $('totalWeight').textContent = kg(totalW);
+  $('totalPrice').textContent = yen(totalP);
+  $('stickyTotalWeight').textContent = kg(totalW);
+  $('stickyTotalPrice').textContent = yen(totalP);
+
+  tbody.querySelectorAll('.edit-btn, .del-btn').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const id = b.dataset.id, act = b.dataset.act;
+      if(act==='edit'){ editingItemId = id; renderItems(); }
+      else if(act==='cancel'){ editingItemId = null; renderItems(); }
+      else if(act==='delete'){ removeItem(id); }
+      else if(act==='save'){ saveItemEdit(id); }
+    });
+  });
+}
+async function saveItemEdit(id){
+  const it = currentProject.items.find(i=>i.id===id);
+  if(!it) return;
+  const row = document.querySelector(`.edit-btn[data-id="${id}"][data-act="save"]`).closest('tr');
+  const newName = row.querySelector('[data-f="name"]').value.trim();
+  const newQty = parseFloat(row.querySelector('[data-f="rawQty"]').value);
+  const newPrice = parseFloat(row.querySelector('[data-f="unitPrice"]').value);
+  const lengthField = row.querySelector('[data-f="lengthMm"]');
+  if(!newQty || newQty<=0){ alert("数量は1以上を入力してください。"); return; }
+
+  const oldRawQty = it.rawQty;
+  const oldWeight = it.weight;
+
+  it.name = newName || it.name;
+  it.unitPrice = isNaN(newPrice) ? it.unitPrice : newPrice;
+
+  if(it.type==="shape" && lengthField){
+    const newLength = parseFloat(lengthField.value);
+    if(!newLength || newLength<=0){ alert("長さは1mm以上を入力してください。"); return; }
+    it.lengthMm = newLength;
+    it.rawQty = newQty;
+    it.weight = it.weightPerM * (newLength/1000) * newQty;
+    it.qtyLabel = newQty + "本 (L=" + newLength + "mm)";
+  } else if(it.type==="plate"){
+    const tField = row.querySelector('[data-f="plateT"]');
+    const newT = tField ? (parseFloat(tField.value) || 0) : it.tMm;
+    let newAreaM2;
+    if(it.plateMode === "dims"){
+      const hField = row.querySelector('[data-f="plateH"]');
+      const wField = row.querySelector('[data-f="plateW"]');
+      const newH = parseFloat(hField.value) || 0;
+      const newW = parseFloat(wField.value) || 0;
+      if(newH<=0 || newW<=0 || newT<=0){ alert("縦・横・厚さは1以上を入力してください。"); return; }
+      it.hMm = newH; it.wMm = newW;
+      newAreaM2 = (newH/1000) * (newW/1000);
+      it.spec = "鉄板 " + newH + "×" + newW + "×t" + newT + "mm";
+    } else {
+      const areaField = row.querySelector('[data-f="plateArea"]');
+      newAreaM2 = parseFloat(areaField.value) || 0;
+      if(newAreaM2<=0 || newT<=0){ alert("面積・厚さは正の値を入力してください。"); return; }
+      it.spec = "鉄板 " + newAreaM2 + "m²×t" + newT + "mm";
+    }
+    it.tMm = newT;
+    it.areaM2 = newAreaM2;
+    const unitWeight = newAreaM2 * (newT/1000) * it.density * 1000; // kg per sheet
+    it.unitWeightLabel = unitWeight.toFixed(2) + " kg/枚";
+    it.rawQty = newQty;
+    it.weight = unitWeight * newQty;
+    it.qtyLabel = newQty + it.unitLabel;
+  } else {
+    const perUnitWeight = oldRawQty ? oldWeight / oldRawQty : 0;
+    it.rawQty = newQty;
+    it.weight = perUnitWeight * newQty;
+    it.qtyLabel = newQty + it.unitLabel;
+  }
+  it.amount = it.weight * it.unitPrice;
+  editingItemId = null;
+  await saveProject(currentProject);
+  renderItems();
+  updatePreviewCalc();
+}
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s??""; return d.innerHTML; }
+function escapeAttr(s){ return escapeHtml(s).replace(/"/g,"&quot;"); }
+
+/* =============== preview =============== */
+const CATEGORY_ORDER = [...Object.keys(STEEL_DATA), "鉄板"];
+function categoryOf(it){
+  if(it.type === "plate") return "鉄板";
+  const idx = it.spec.indexOf(" ");
+  return idx>-1 ? it.spec.slice(0, idx) : it.spec;
+}
+function groupKeyOf(it){
+  return [it.type, it.name, it.spec, it.material, it.unitPrice, it.type==="shape"?it.lengthMm:''].join('|');
+}
+function groupItemsForPreview(items){
+  const map = new Map();
+  items.forEach(it=>{
+    const key = groupKeyOf(it);
+    if(!map.has(key)){
+      map.set(key, {
+        name: it.name, spec: it.spec, material: it.material,
+        unitWeightLabel: it.unitWeightLabel, unitLabel: it.unitLabel || "",
+        unitPrice: it.unitPrice, rawQty:0, weight:0, amount:0,
+        category: categoryOf(it)
+      });
+    }
+    const g = map.get(key);
+    g.rawQty += (it.rawQty || 0);
+    g.weight += it.weight;
+    g.amount += it.amount;
+  });
+  const list = Array.from(map.values());
+  list.sort((a,b)=>{
+    const ca = CATEGORY_ORDER.indexOf(a.category), cb = CATEGORY_ORDER.indexOf(b.category);
+    if(ca !== cb) return (ca<0?999:ca) - (cb<0?999:cb);
+    return a.spec.localeCompare(b.spec, 'ja');
+  });
+  return list;
+}
+function updatePreviewCalc(){
+  updateDocCompanyHeader();
+  $('pv_site').textContent = currentProject.siteName || "-";
+  $('pv_date').textContent = currentProject.date || "-";
+  $('pv_person').textContent = currentProject.person || "-";
+  const tbody = $('pv_body');
+  tbody.innerHTML = "";
+  const grouped = groupItemsForPreview(currentProject.items);
+  let totalW=0, totalP=0, no=0, lastCategory=null;
+  grouped.forEach(it=>{
+    totalW += it.weight; totalP += it.amount;
+    if(it.category !== lastCategory){
+      lastCategory = it.category;
+      const catRow = document.createElement('tr');
+      catRow.className = 'cat-header-row';
+      catRow.innerHTML = `<td colspan="9">${escapeHtml(it.category)}</td>`;
+      tbody.appendChild(catRow);
+    }
+    no++;
+    const tr = document.createElement('tr');
+    const qtyLabel = it.rawQty ? (it.rawQty + it.unitLabel) : "-";
+    tr.innerHTML = `
+      <td>${no}</td><td>${escapeHtml(it.name)}</td><td>${escapeHtml(it.spec)}</td>
+      <td>${escapeHtml(it.material)}</td><td class="num mono">${qtyLabel}</td>
+      <td class="num mono">${it.unitWeightLabel}</td><td class="num mono">${it.weight.toFixed(1)}</td>
+      <td class="num mono">${it.unitPrice.toLocaleString('ja-JP')}</td><td class="num mono">${yen(it.amount)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  $('pv_weight').textContent = kg(totalW);
+  $('pv_price').textContent = yen(totalP);
+}
+
+/* =============== events =============== */
+function bindEvents(){
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      $('panel-'+t.dataset.tab).classList.add('active');
+      $('stickySummary').classList.toggle('hidden', t.dataset.tab==='preview');
+      if(t.dataset.tab==='preview') updatePreviewCalc();
+    });
+  });
+
+  document.querySelectorAll('input[name=itemType]').forEach(r=>{
+    r.addEventListener('change', ()=>{
+      const v = document.querySelector('input[name=itemType]:checked').value;
+      $('form-shape').style.display = v==='shape' ? '' : 'none';
+      $('form-plate').style.display = v==='plate' ? '' : 'none';
+    });
+  });
+  document.querySelectorAll('input[name=plateMode]').forEach(r=>{
+    r.addEventListener('change', ()=>{
+      const v = document.querySelector('input[name=plateMode]:checked').value;
+      $('p_dimsW').style.display = v==='dims' ? '' : 'none';
+      $('p_dimsW2').style.display = v==='dims' ? '' : 'none';
+      $('p_areaW').style.display = v==='area' ? '' : 'none';
+      updatePlatePreview();
+    });
+  });
+
+  $('s_category').addEventListener('change', ()=>{ populateSizeSelect(); updateShapePreview(); });
+  ['s_size','s_length','s_qty','s_material','s_customDensity','s_fbWidth','s_fbThick','s_rbDia','s_pipeOD','s_pipeThick'].forEach(id=>{
+    $(id).addEventListener('input', updateShapePreview);
+    $(id).addEventListener('change', updateShapePreview);
+  });
+  $('s_material').addEventListener('change', ()=>{
+    $('s_customDensityWrap').style.display = $('s_material').value==='custom' ? '' : 'none';
+    updateShapePreview();
+  });
+  $('s_addBtn').addEventListener('click', addShapeItem);
+
+  ['p_h','p_w','p_area','p_t','p_qty','p_material','p_customDensity'].forEach(id=>{
+    $(id).addEventListener('input', updatePlatePreview);
+    $(id).addEventListener('change', updatePlatePreview);
+  });
+  $('p_material').addEventListener('change', ()=>{
+    $('p_customDensityWrap').style.display = $('p_material').value==='custom' ? '' : 'none';
+    updatePlatePreview();
+  });
+  $('p_addBtn').addEventListener('click', addPlateItem);
+
+  ['f_siteName','f_date','f_person','f_defaultPrice'].forEach(id=>{
+    $(id).addEventListener('change', async ()=>{ await persistProjectMeta(); updatePreviewCalc(); });
+  });
+  let siteNameDebounce;
+  $('f_siteName').addEventListener('input', ()=>{
+    clearTimeout(siteNameDebounce);
+    siteNameDebounce = setTimeout(async ()=>{ await persistProjectMeta(); updatePreviewCalc(); }, 400);
+  });
+
+  $('projectSelect').addEventListener('change', async ()=>{
+    currentProjectId = $('projectSelect').value;
+    currentProject = await loadProject(currentProjectId);
+    if(!currentProject) currentProject = newProjectObj(projects.find(p=>p.id===currentProjectId)?.name || "現場");
+    if(migrateProjectItems(currentProject)) await saveProject(currentProject);
+    loadProjectIntoForm();
+    renderItems();
+    updatePreviewCalc();
+  });
+
+  $('newProjectBtn').addEventListener('click', ()=>{ $('modalBg').classList.add('show'); $('modalName').value=""; $('modalName').focus(); });
+  $('modalCancel').addEventListener('click', ()=>{ $('modalBg').classList.remove('show'); });
+  $('modalCreate').addEventListener('click', async ()=>{
+    const name = $('modalName').value.trim() || "新規現場";
+    const p = newProjectObj(name);
+    projects.push({id:p.id, name:p.name});
+    await saveProjectList(projects);
+    await saveProject(p);
+    currentProjectId = p.id; currentProject = p;
+    renderProjectSelect(); loadProjectIntoForm(); renderItems(); updatePreviewCalc();
+    $('modalBg').classList.remove('show');
+  });
+
+  $('deleteProjectBtn').addEventListener('click', async ()=>{
+    if(projects.length<=1){ alert("最後の現場は削除できません。"); return; }
+    if(!confirm(`「${currentProject.siteName||currentProject.name}」を削除しますか？この操作は取り消せません。`)) return;
+    await deleteProjectStorage(currentProjectId);
+    projects = projects.filter(p=>p.id!==currentProjectId);
+    await saveProjectList(projects);
+    currentProjectId = projects[0].id;
+    currentProject = await loadProject(currentProjectId);
+    renderProjectSelect(); loadProjectIntoForm(); renderItems(); updatePreviewCalc();
+  });
+
+  $('printBtn').addEventListener('click', ()=> window.print());
+
+  $('exportProjectBtn').addEventListener('click', exportCurrentProject);
+  $('exportAllBtn').addEventListener('click', exportAllProjects);
+  $('importBtn').addEventListener('click', ()=> $('importFile').click());
+  $('importFile').addEventListener('change', handleImportFile);
+  $('s_favBtn').addEventListener('click', saveShapeFavorite);
+  $('p_favBtn').addEventListener('click', savePlateFavorite);
+
+  let companyNameDebounce;
+  $('companyName').addEventListener('input', ()=>{
+    clearTimeout(companyNameDebounce);
+    companyNameDebounce = setTimeout(async ()=>{
+      companyInfo.name = $('companyName').value;
+      await saveCompanyInfo(companyInfo);
+      updateDocCompanyHeader();
+    }, 400);
+  });
+  $('companyLogoFile').addEventListener('change', handleLogoUpload);
+  $('companyLogoRemoveBtn').addEventListener('click', removeCompanyLogo);
+}
+
+init();
+</script>
+</body>
+</html>
