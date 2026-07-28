@@ -189,24 +189,25 @@
 
   /* mobile card layout for items table */
   @media (max-width: 720px){
-    #itemsTable thead{display:none;}
-    #itemsTable, #itemsTable tbody, #itemsTable tr, #itemsTable td{display:block; width:100%;}
-    #itemsTable tr{
+    #itemsTable thead, #equipmentTable thead{display:none;}
+    #itemsTable, #itemsTable tbody, #itemsTable tr, #itemsTable td,
+    #equipmentTable, #equipmentTable tbody, #equipmentTable tr, #equipmentTable td{display:block; width:100%;}
+    #itemsTable tr, #equipmentTable tr{
       border:1px solid var(--line); border-radius:10px; margin-bottom:10px; padding:8px 10px;
       background:var(--white);
     }
-    #itemsTable tr.empty-row{border:none; background:none;}
-    #itemsTable tr:nth-child(even){background:var(--white);}
-    #itemsTable td{
+    #itemsTable tr.empty-row, #equipmentTable tr.empty-row{border:none; background:none;}
+    #itemsTable tr:nth-child(even), #equipmentTable tr:nth-child(even){background:var(--white);}
+    #itemsTable td, #equipmentTable td{
       display:flex; justify-content:space-between; align-items:center; gap:10px;
       text-align:right; padding:7px 2px; border-bottom:1px dashed var(--line); white-space:normal;
     }
-    #itemsTable td:last-child{border-bottom:none;}
-    #itemsTable td[data-label]::before{
+    #itemsTable td:last-child, #equipmentTable td:last-child{border-bottom:none;}
+    #itemsTable td[data-label]::before, #equipmentTable td[data-label]::before{
       content:attr(data-label); font-size:11px; font-weight:700; color:#8b8578; text-align:left; flex-shrink:0;
     }
-    #itemsTable td.row-actions{justify-content:flex-end;}
-    #itemsTable td.row-actions::before{content:none;}
+    #itemsTable td.row-actions, #equipmentTable td.row-actions{justify-content:flex-end;}
+    #itemsTable td.row-actions::before, #equipmentTable td.row-actions::before{content:none;}
     .sticky-summary{gap:20px; padding:9px 10px;}
     .ss-val{font-size:14px;}
   }
@@ -232,6 +233,7 @@
 
   <div class="tabs no-print">
     <div class="tab active" data-tab="input">入力・集計</div>
+    <div class="tab" data-tab="equipment">その他部材</div>
     <div class="tab" data-tab="preview">材料手配書プレビュー</div>
   </div>
 
@@ -352,6 +354,55 @@
         <div class="box"><div class="lbl">合計重量</div><div class="val mono" id="totalWeight">0.0 kg</div></div>
         <div class="box"><div class="lbl">合計金額</div><div class="val money mono" id="totalPrice">¥0</div></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ============ EQUIPMENT PANEL ============ -->
+  <div class="panel" id="panel-equipment">
+    <datalist id="equipCategoryList">
+      <option value="スプロケット"><option value="Vプーリー">
+      <option value="チェーン"><option value="キャリヤアイドラ">
+    </datalist>
+    <datalist id="equipUnitList">
+      <option value="個"><option value="組"><option value="本"><option value="m"><option value="式">
+    </datalist>
+
+    <div class="card">
+      <h2>その他部材を追加</h2>
+      <div class="grid">
+        <div class="field"><label>分類</label><input id="eq_category" type="text" list="equipCategoryList" placeholder="スプロケット"></div>
+        <div class="field"><label>品名・型式</label><input id="eq_name" type="text" placeholder="SPB250 6条"></div>
+        <div class="field"><label>仕様(任意)</label><input id="eq_spec" type="text" placeholder="歯数24T 軸穴50mm"></div>
+        <div class="field"><label>数量</label><input id="eq_qty" type="number" step="1" value="1"></div>
+        <div class="field"><label>単位</label><input id="eq_unit" type="text" list="equipUnitList" placeholder="個"></div>
+        <div class="field"><label>単価(円/単位)</label><input id="eq_price" type="number" step="1" placeholder="0"></div>
+        <div class="field"><label>重量(kg/単位・任意)</label><input id="eq_weight" type="number" step="0.01" placeholder="未入力可"></div>
+      </div>
+      <div class="note">単価は<b>選択した単位1つあたりの価格</b>です(鋼材タブの円/kgとは異なります)。重量が分かる場合のみ入力してください。空欄の部材は合計重量に含まれません。</div>
+      <div style="margin-top:12px;">
+        <button class="btn rust" id="eq_addBtn">＋ リストに追加</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>その他部材リスト</h2>
+      <div style="overflow-x:auto;">
+        <table id="equipmentTable">
+          <thead>
+            <tr>
+              <th>分類</th><th>品名・型式</th><th>仕様</th>
+              <th class="num">数量</th><th class="num">単価(円)</th><th class="num">重量計(kg)</th>
+              <th class="num">金額(円)</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="equipmentBody"></tbody>
+        </table>
+      </div>
+      <div class="totals">
+        <div class="box"><div class="lbl">合計重量</div><div class="val mono" id="equipTotalWeight">0.0 kg</div></div>
+        <div class="box"><div class="lbl">合計金額</div><div class="val money mono" id="equipTotalPrice">¥0</div></div>
+      </div>
+      <div class="note">重量が未入力の部材は合計重量に含まれません(金額は数量×単価で常に計算されます)。</div>
     </div>
   </div>
 
@@ -569,7 +620,7 @@ async function saveCompanyInfo(info){
 
 function newProjectObj(name){
   return { id: uid(), name: name, siteName: name, date: new Date().toISOString().slice(0,10),
-    person:"", defaultPrice:500, items:[] };
+    person:"", defaultPrice:500, items:[], equipmentItems:[] };
 }
 
 /* =============== init =============== */
@@ -593,6 +644,7 @@ async function init(){
   renderProjectSelect();
   loadProjectIntoForm();
   renderItems();
+  renderEquipmentItems();
   renderFavorites();
   $('companyName').value = companyInfo.name || "";
   updateCompanyLogoUI();
@@ -604,6 +656,7 @@ async function init(){
    既存の重量・仕様テキストから逆算して補完する。NaN化を防ぐための後方互換対応。 */
 function migrateProjectItems(project){
   let changed = false;
+  if(!Array.isArray(project.equipmentItems)){ project.equipmentItems = []; changed = true; }
   (project.items||[]).forEach(it=>{
     if(it.rawQty == null){
       const m = (it.qtyLabel||"").match(/^([\d.]+)/);
@@ -1160,6 +1213,7 @@ async function handleImportFile(e){
     renderProjectSelect();
     loadProjectIntoForm();
     renderItems();
+    renderEquipmentItems();
     renderFavorites();
     updatePreviewCalc();
   }catch(err){
@@ -1369,15 +1423,164 @@ async function saveItemEdit(id){
 function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s??""; return d.innerHTML; }
 function escapeAttr(s){ return escapeHtml(s).replace(/"/g,"&quot;"); }
 
+/* =============== equipment (その他部材) =============== */
+let editingEquipmentId = null;
+function addEquipmentItem(){
+  const category = $('eq_category').value.trim();
+  const name = $('eq_name').value.trim();
+  const qty = parseFloat($('eq_qty').value) || 0;
+  if(!category || !name){ alert("分類と品名・型式を入力してください。"); return; }
+  if(qty<=0){ alert("数量を確認してください。"); return; }
+  const unit = $('eq_unit').value.trim() || "個";
+  const price = parseFloat($('eq_price').value);
+  const unitPrice = isNaN(price) ? 0 : price;
+  const weightVal = parseFloat($('eq_weight').value);
+  const weightPerUnit = isNaN(weightVal) ? null : weightVal;
+  currentProject.equipmentItems.push({
+    id: uid(), type:"equipment",
+    category, name,
+    spec: $('eq_spec').value.trim(),
+    unitWeightLabel: weightPerUnit!=null ? weightPerUnit.toFixed(2)+" kg/"+unit : "-",
+    weightPerUnit,
+    qtyLabel: qty + unit,
+    weight: weightPerUnit!=null ? weightPerUnit*qty : 0,
+    unitPrice, amount: qty*unitPrice,
+    rawQty: qty, unitLabel: unit
+  });
+  $('eq_name').value=""; $('eq_spec').value=""; $('eq_qty').value="1";
+  $('eq_price').value=""; $('eq_weight').value="";
+  afterEquipmentAdd();
+}
+async function afterEquipmentAdd(){
+  await saveProject(currentProject);
+  renderEquipmentItems();
+  updatePreviewCalc();
+}
+async function removeEquipmentItem(id){
+  const it = currentProject.equipmentItems.find(i=>i.id===id);
+  if(!confirm(`「${it ? it.name : "この部材"}」を削除しますか？この操作は取り消せません。`)) return;
+  currentProject.equipmentItems = currentProject.equipmentItems.filter(i=>i.id!==id);
+  await saveProject(currentProject);
+  renderEquipmentItems();
+  updatePreviewCalc();
+}
+async function moveEquipmentItem(id, dir){
+  const idx = currentProject.equipmentItems.findIndex(i=>i.id===id);
+  if(idx<0) return;
+  const newIdx = idx + dir;
+  if(newIdx<0 || newIdx>=currentProject.equipmentItems.length) return;
+  [currentProject.equipmentItems[idx], currentProject.equipmentItems[newIdx]] = [currentProject.equipmentItems[newIdx], currentProject.equipmentItems[idx]];
+  await saveProject(currentProject);
+  renderEquipmentItems();
+  updatePreviewCalc();
+}
+function renderEquipmentItems(){
+  const tbody = $('equipmentBody');
+  tbody.innerHTML = "";
+  const items = currentProject.equipmentItems || [];
+  if(items.length===0){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">その他部材が登録されていません。上のフォームから追加してください。</td></tr>`;
+  }
+  let totalW=0, totalP=0;
+  items.forEach((it, idx)=>{
+    totalW += it.weight; totalP += it.amount;
+    const tr = document.createElement('tr');
+    if(it.id === editingEquipmentId){
+      tr.classList.add('editing-row');
+      tr.innerHTML = `
+        <td data-label="分類"><input class="edit-cell-input" data-f="category" value="${escapeAttr(it.category)}" list="equipCategoryList"></td>
+        <td data-label="品名・型式"><input class="edit-cell-input" data-f="name" value="${escapeAttr(it.name)}"></td>
+        <td data-label="仕様"><input class="edit-cell-input" data-f="spec" value="${escapeAttr(it.spec||'')}"></td>
+        <td class="num" data-label="数量">
+          <input class="edit-cell-input mono" data-f="rawQty" type="number" step="1" value="${it.rawQty}" style="width:56px; text-align:right;">
+          <input class="edit-cell-input" data-f="unitLabel" value="${escapeAttr(it.unitLabel)}" list="equipUnitList" style="width:56px;">
+        </td>
+        <td class="num" data-label="単価(円)"><input class="edit-cell-input mono" data-f="unitPrice" type="number" step="1" value="${it.unitPrice}" style="width:70px; text-align:right;"></td>
+        <td class="num" data-label="重量計(kg)"><input class="edit-cell-input mono" data-f="weightPerUnit" type="number" step="0.01" value="${it.weightPerUnit ?? ''}" placeholder="未入力可" style="width:70px; text-align:right;"></td>
+        <td class="num mono" data-label="金額(円)">${yen(it.amount)}</td>
+        <td class="row-actions">
+          <button class="edit-btn" data-id="${it.id}" data-act="save" title="保存">✓</button>
+          <button class="del-btn" data-id="${it.id}" data-act="cancel" title="キャンセル">✕</button>
+        </td>
+      `;
+    } else {
+      tr.innerHTML = `
+        <td data-label="分類">${escapeHtml(it.category)}</td>
+        <td data-label="品名・型式">${escapeHtml(it.name)}</td>
+        <td data-label="仕様">${escapeHtml(it.spec||'-')}</td>
+        <td class="num mono" data-label="数量">${escapeHtml(it.qtyLabel)}</td>
+        <td class="num mono" data-label="単価(円)">${it.unitPrice.toLocaleString('ja-JP')}</td>
+        <td class="num mono" data-label="重量計(kg)">${it.unitWeightLabel==='-' ? '-' : it.weight.toFixed(1)}</td>
+        <td class="num mono" data-label="金額(円)">${yen(it.amount)}</td>
+        <td class="row-actions">
+          <div class="reorder-group">
+            <button class="reorder-btn" data-id="${it.id}" data-act="up" title="上へ" ${idx===0?'disabled':''}>▲</button>
+            <button class="reorder-btn" data-id="${it.id}" data-act="down" title="下へ" ${idx===items.length-1?'disabled':''}>▼</button>
+          </div>
+          <button class="edit-btn" data-id="${it.id}" data-act="edit" title="編集">✎</button>
+          <button class="del-btn" data-id="${it.id}" data-act="delete" title="削除">✕</button>
+        </td>
+      `;
+    }
+    tbody.appendChild(tr);
+  });
+  $('equipTotalWeight').textContent = kg(totalW);
+  $('equipTotalPrice').textContent = yen(totalP);
+
+  tbody.querySelectorAll('.edit-btn, .del-btn, .reorder-btn').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const id = b.dataset.id, act = b.dataset.act;
+      if(act==='edit'){ editingEquipmentId = id; renderEquipmentItems(); }
+      else if(act==='cancel'){ editingEquipmentId = null; renderEquipmentItems(); }
+      else if(act==='delete'){ removeEquipmentItem(id); }
+      else if(act==='save'){ saveEquipmentEdit(id); }
+      else if(act==='up'){ moveEquipmentItem(id, -1); }
+      else if(act==='down'){ moveEquipmentItem(id, 1); }
+    });
+  });
+}
+async function saveEquipmentEdit(id){
+  const it = currentProject.equipmentItems.find(i=>i.id===id);
+  if(!it) return;
+  const row = document.querySelector(`.edit-btn[data-id="${id}"][data-act="save"]`).closest('tr');
+  const newCategory = row.querySelector('[data-f="category"]').value.trim();
+  const newName = row.querySelector('[data-f="name"]').value.trim();
+  const newSpec = row.querySelector('[data-f="spec"]').value.trim();
+  const newQty = parseFloat(row.querySelector('[data-f="rawQty"]').value);
+  const newUnit = row.querySelector('[data-f="unitLabel"]').value.trim() || "個";
+  const newPrice = parseFloat(row.querySelector('[data-f="unitPrice"]').value);
+  const newWeightVal = row.querySelector('[data-f="weightPerUnit"]').value;
+  if(!newQty || newQty<=0){ alert("数量は1以上を入力してください。"); return; }
+
+  it.category = newCategory || it.category;
+  it.name = newName || it.name;
+  it.spec = newSpec;
+  it.rawQty = newQty;
+  it.unitLabel = newUnit;
+  it.unitPrice = isNaN(newPrice) ? it.unitPrice : newPrice;
+  const weightPerUnit = newWeightVal==="" ? null : (parseFloat(newWeightVal) || 0);
+  it.weightPerUnit = weightPerUnit;
+  it.unitWeightLabel = weightPerUnit!=null ? weightPerUnit.toFixed(2)+" kg/"+newUnit : "-";
+  it.weight = weightPerUnit!=null ? weightPerUnit*newQty : 0;
+  it.qtyLabel = newQty + newUnit;
+  it.amount = newQty * it.unitPrice;
+
+  editingEquipmentId = null;
+  await saveProject(currentProject);
+  renderEquipmentItems();
+  updatePreviewCalc();
+}
+
 /* =============== preview =============== */
-const CATEGORY_ORDER = [...Object.keys(STEEL_DATA), "鉄板"];
+const CATEGORY_ORDER = [...Object.keys(STEEL_DATA), "鉄板", "スプロケット", "Vプーリー", "チェーン", "キャリヤアイドラ"];
 function categoryOf(it){
   if(it.type === "plate") return "鉄板";
+  if(it.type === "equipment") return it.category || "その他部材";
   const idx = it.spec.indexOf(" ");
   return idx>-1 ? it.spec.slice(0, idx) : it.spec;
 }
 function groupKeyOf(it){
-  return [it.type, it.name, it.spec, it.material, it.unitPrice, it.type==="shape"?it.lengthMm:''].join('|');
+  return [it.type, it.category||'', it.name, it.spec, it.material, it.unitPrice, it.type==="shape"?it.lengthMm:''].join('|');
 }
 function groupItemsForPreview(items){
   const map = new Map();
@@ -1385,7 +1588,7 @@ function groupItemsForPreview(items){
     const key = groupKeyOf(it);
     if(!map.has(key)){
       map.set(key, {
-        name: it.name, spec: it.spec, material: it.material,
+        type: it.type, name: it.name, spec: it.spec, material: it.material,
         unitWeightLabel: it.unitWeightLabel, unitLabel: it.unitLabel || "",
         unitPrice: it.unitPrice, rawQty:0, weight:0, amount:0,
         category: categoryOf(it)
@@ -1411,7 +1614,7 @@ function updatePreviewCalc(){
   $('pv_person').textContent = currentProject.person || "-";
   const tbody = $('pv_body');
   tbody.innerHTML = "";
-  const grouped = groupItemsForPreview(currentProject.items);
+  const grouped = groupItemsForPreview([...currentProject.items, ...(currentProject.equipmentItems||[])]);
   let totalW=0, totalP=0, no=0, lastCategory=null;
   grouped.forEach(it=>{
     totalW += it.weight; totalP += it.amount;
@@ -1425,10 +1628,11 @@ function updatePreviewCalc(){
     no++;
     const tr = document.createElement('tr');
     const qtyLabel = it.rawQty ? (it.rawQty + it.unitLabel) : "-";
+    const weightCell = it.unitWeightLabel==='-' ? '-' : it.weight.toFixed(1);
     tr.innerHTML = `
       <td>${no}</td><td>${escapeHtml(it.name)}</td><td>${escapeHtml(it.spec)}</td>
-      <td>${escapeHtml(it.material)}</td><td class="num mono">${qtyLabel}</td>
-      <td class="num mono">${it.unitWeightLabel}</td><td class="num mono">${it.weight.toFixed(1)}</td>
+      <td>${escapeHtml(it.material || '-')}</td><td class="num mono">${qtyLabel}</td>
+      <td class="num mono">${it.unitWeightLabel}</td><td class="num mono">${weightCell}</td>
       <td class="num mono">${it.unitPrice.toLocaleString('ja-JP')}</td><td class="num mono">${yen(it.amount)}</td>
     `;
     tbody.appendChild(tr);
@@ -1445,8 +1649,9 @@ function bindEvents(){
       document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
       t.classList.add('active');
       $('panel-'+t.dataset.tab).classList.add('active');
-      $('stickySummary').classList.toggle('hidden', t.dataset.tab==='preview');
+      $('stickySummary').classList.toggle('hidden', t.dataset.tab!=='input');
       if(t.dataset.tab==='preview') updatePreviewCalc();
+      if(t.dataset.tab==='equipment') renderEquipmentItems();
     });
   });
 
@@ -1504,6 +1709,7 @@ function bindEvents(){
     if(migrateProjectItems(currentProject)) await saveProject(currentProject);
     loadProjectIntoForm();
     renderItems();
+    renderEquipmentItems();
     updatePreviewCalc();
   });
 
@@ -1516,7 +1722,7 @@ function bindEvents(){
     await saveProjectList(projects);
     await saveProject(p);
     currentProjectId = p.id; currentProject = p;
-    renderProjectSelect(); loadProjectIntoForm(); renderItems(); updatePreviewCalc();
+    renderProjectSelect(); loadProjectIntoForm(); renderItems(); renderEquipmentItems(); updatePreviewCalc();
     $('modalBg').classList.remove('show');
   });
 
@@ -1528,7 +1734,7 @@ function bindEvents(){
     await saveProjectList(projects);
     currentProjectId = projects[0].id;
     currentProject = await loadProject(currentProjectId);
-    renderProjectSelect(); loadProjectIntoForm(); renderItems(); updatePreviewCalc();
+    renderProjectSelect(); loadProjectIntoForm(); renderItems(); renderEquipmentItems(); updatePreviewCalc();
   });
 
   $('printBtn').addEventListener('click', ()=> window.print());
@@ -1539,6 +1745,7 @@ function bindEvents(){
   $('importFile').addEventListener('change', handleImportFile);
   $('s_favBtn').addEventListener('click', saveShapeFavorite);
   $('p_favBtn').addEventListener('click', savePlateFavorite);
+  $('eq_addBtn').addEventListener('click', addEquipmentItem);
 
   let companyNameDebounce;
   $('companyName').addEventListener('input', ()=>{
