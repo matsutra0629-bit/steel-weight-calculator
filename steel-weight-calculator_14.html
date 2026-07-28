@@ -364,11 +364,10 @@
       <option value="ナット"><option value="座金">
       <option value="スプロケット"><option value="Vプーリー"><option value="プーリー"><option value="チェーン">
       <option value="キャリヤアイドラ"><option value="リターンアイドラ"><option value="コンベヤベルト">
-      <option value="ベルトクリーナー"><option value="シュート"><option value="ホッパー">
+      <option value="ベルトクリーナー">
       <option value="軸受"><option value="軸"><option value="カップリング"><option value="減速機">
       <option value="電動機"><option value="キー">
       <option value="ライナー"><option value="スクリーンメッシュ"><option value="ジョープレート">
-      <option value="ブローバー"><option value="マントル"><option value="コンケーブ">
     </datalist>
     <datalist id="equipUnitList">
       <option value="個"><option value="組"><option value="本"><option value="m"><option value="式">
@@ -399,7 +398,7 @@
           <thead>
             <tr>
               <th>分類</th><th>品名・型式</th><th>仕様</th>
-              <th class="num">数量</th><th class="num">単価(円)</th><th class="num">重量計(kg)</th>
+              <th class="num">数量</th><th class="num">長さ(mm)</th><th class="num">単価(円)</th><th class="num">重量計(kg)</th>
               <th class="num">金額(円)</th><th></th>
             </tr>
           </thead>
@@ -1453,7 +1452,7 @@ function addEquipmentItem(){
     spec: $('eq_spec').value.trim(),
     unitWeightLabel: weightPerUnit!=null ? weightPerUnit.toFixed(2)+" kg/"+unit : "-",
     weightPerUnit,
-    qtyLabel: qty + unit + (isBolt && lengthMm>0 ? ` (L=${lengthMm}mm)` : ""),
+    qtyLabel: qty + unit,
     weight: weightPerUnit!=null ? weightPerUnit*qty : 0,
     unitPrice, amount: qty*unitPrice,
     rawQty: qty, unitLabel: unit, lengthMm
@@ -1490,7 +1489,7 @@ function renderEquipmentItems(){
   tbody.innerHTML = "";
   const items = currentProject.equipmentItems || [];
   if(items.length===0){
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">その他部材が登録されていません。上のフォームから追加してください。</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="9">その他部材が登録されていません。上のフォームから追加してください。</td></tr>`;
   }
   let totalW=0, totalP=0;
   items.forEach((it, idx)=>{
@@ -1500,16 +1499,14 @@ function renderEquipmentItems(){
       tr.classList.add('editing-row');
       const isBolt = isBoltCategory(it.category);
       tr.innerHTML = `
-        <td data-label="分類">
-          <input class="edit-cell-input" data-f="category" value="${escapeAttr(it.category)}" list="equipCategoryList">
-          <input class="edit-cell-input mono" data-f="lengthMm" type="number" step="1" value="${it.lengthMm ?? ''}" placeholder="長さmm" style="width:100%; margin-top:4px; ${isBolt?'':'display:none;'}">
-        </td>
+        <td data-label="分類"><input class="edit-cell-input" data-f="category" value="${escapeAttr(it.category)}" list="equipCategoryList"></td>
         <td data-label="品名・型式"><input class="edit-cell-input" data-f="name" value="${escapeAttr(it.name)}"></td>
         <td data-label="仕様"><input class="edit-cell-input" data-f="spec" value="${escapeAttr(it.spec||'')}"></td>
         <td class="num" data-label="数量">
           <input class="edit-cell-input mono" data-f="rawQty" type="number" step="1" value="${it.rawQty}" style="width:56px; text-align:right;">
           <input class="edit-cell-input" data-f="unitLabel" value="${escapeAttr(it.unitLabel)}" list="equipUnitList" style="width:56px;">
         </td>
+        <td class="num" data-label="長さ(mm)"><input class="edit-cell-input mono" data-f="lengthMm" type="number" step="1" value="${it.lengthMm ?? ''}" placeholder="-" style="width:70px; text-align:right; ${isBolt?'':'display:none;'}"></td>
         <td class="num" data-label="単価(円)"><input class="edit-cell-input mono" data-f="unitPrice" type="number" step="1" value="${it.unitPrice}" style="width:70px; text-align:right;"></td>
         <td class="num" data-label="重量計(kg)"><input class="edit-cell-input mono" data-f="weightPerUnit" type="number" step="0.01" value="${it.weightPerUnit ?? ''}" placeholder="未入力可" style="width:70px; text-align:right;"></td>
         <td class="num mono" data-label="金額(円)">${yen(it.amount)}</td>
@@ -1524,6 +1521,7 @@ function renderEquipmentItems(){
         <td data-label="品名・型式">${escapeHtml(it.name)}</td>
         <td data-label="仕様">${escapeHtml(it.spec||'-')}</td>
         <td class="num mono" data-label="数量">${escapeHtml(it.qtyLabel)}</td>
+        <td class="num mono" data-label="長さ(mm)">${it.lengthMm ? it.lengthMm : '-'}</td>
         <td class="num mono" data-label="単価(円)">${it.unitPrice.toLocaleString('ja-JP')}</td>
         <td class="num mono" data-label="重量計(kg)">${it.unitWeightLabel==='-' ? '-' : it.weight.toFixed(1)}</td>
         <td class="num mono" data-label="金額(円)">${yen(it.amount)}</td>
@@ -1555,7 +1553,7 @@ function renderEquipmentItems(){
   });
   tbody.querySelectorAll('input[data-f="category"]').forEach(inp=>{
     inp.addEventListener('input', ()=>{
-      const lenInput = inp.parentElement.querySelector('[data-f="lengthMm"]');
+      const lenInput = inp.closest('tr').querySelector('[data-f="lengthMm"]');
       if(lenInput) lenInput.style.display = isBoltCategory(inp.value) ? '' : 'none';
     });
   });
@@ -1585,9 +1583,8 @@ async function saveEquipmentEdit(id){
   it.weight = weightPerUnit!=null ? weightPerUnit*newQty : 0;
   const isBolt = isBoltCategory(it.category);
   const lengthField = row.querySelector('[data-f="lengthMm"]');
-  const newLength = isBolt && lengthField ? (parseFloat(lengthField.value) || 0) : null;
-  it.lengthMm = newLength;
-  it.qtyLabel = newQty + newUnit + (isBolt && newLength>0 ? ` (L=${newLength}mm)` : "");
+  it.lengthMm = isBolt && lengthField ? (parseFloat(lengthField.value) || 0) : null;
+  it.qtyLabel = newQty + newUnit;
   it.amount = newQty * it.unitPrice;
 
   editingEquipmentId = null;
