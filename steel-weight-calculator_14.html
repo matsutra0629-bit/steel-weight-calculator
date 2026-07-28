@@ -162,6 +162,17 @@
   .proj-modal h3{margin:0 0 14px; font-size:14px;}
   .proj-modal .row{display:flex; gap:8px; margin-top:14px; justify-content:flex-end;}
 
+  /* save toast */
+  .save-toast{
+    position:fixed; top:14px; right:14px; z-index:60;
+    background:var(--steel-dark); color:#fff; padding:8px 16px; border-radius:6px;
+    font-size:12.5px; font-weight:600; box-shadow:0 4px 14px rgba(0,0,0,.2);
+    display:flex; align-items:center; gap:6px;
+    opacity:0; transform:translateY(-8px); transition:opacity .2s, transform .2s; pointer-events:none;
+  }
+  .save-toast::before{content:"✓"; color:#8FD19E;}
+  .save-toast.show{opacity:1; transform:translateY(0);}
+
   /* sticky summary bar */
   .sticky-summary{
     position:fixed; left:0; right:0; bottom:0; z-index:40;
@@ -380,6 +391,8 @@
 
 </div>
 
+<div class="save-toast no-print" id="saveToast">保存しました</div>
+
 <div class="sticky-summary no-print" id="stickySummary">
   <div class="ss-item"><span class="ss-label">合計重量</span><span class="ss-val mono" id="stickyTotalWeight">0.0 kg</span></div>
   <div class="ss-item"><span class="ss-label">合計金額</span><span class="ss-val mono money" id="stickyTotalPrice">¥0</span></div>
@@ -514,19 +527,27 @@ const yen = n => "¥" + Math.round(n).toLocaleString("ja-JP");
 const kg = n => n.toFixed(1) + " kg";
 
 /* =============== storage (localStorage) =============== */
+let saveToastTimer;
+function showSaveToast(){
+  const el = $('saveToast');
+  if(!el) return;
+  el.classList.add('show');
+  clearTimeout(saveToastTimer);
+  saveToastTimer = setTimeout(()=> el.classList.remove('show'), 1200);
+}
 async function loadProjectList(){
   try{ const v = localStorage.getItem('project-list'); return v ? JSON.parse(v) : []; }
   catch(e){ return []; }
 }
 async function saveProjectList(list){
-  try{ localStorage.setItem('project-list', JSON.stringify(list)); }catch(e){}
+  try{ localStorage.setItem('project-list', JSON.stringify(list)); showSaveToast(); }catch(e){}
 }
 async function loadProject(id){
   try{ const v = localStorage.getItem('project:'+id); return v ? JSON.parse(v) : null; }
   catch(e){ return null; }
 }
 async function saveProject(p){
-  try{ localStorage.setItem('project:'+p.id, JSON.stringify(p)); }catch(e){}
+  try{ localStorage.setItem('project:'+p.id, JSON.stringify(p)); showSaveToast(); }catch(e){}
 }
 async function deleteProjectStorage(id){
   try{ localStorage.removeItem('project:'+id); }catch(e){}
@@ -536,14 +557,14 @@ async function loadFavorites(){
   catch(e){ return []; }
 }
 async function saveFavoritesList(list){
-  try{ localStorage.setItem('favorites-list', JSON.stringify(list)); }catch(e){}
+  try{ localStorage.setItem('favorites-list', JSON.stringify(list)); showSaveToast(); }catch(e){}
 }
 async function loadCompanyInfo(){
   try{ const v = localStorage.getItem('company-info'); return v ? JSON.parse(v) : {name:"", logo:null}; }
   catch(e){ return {name:"", logo:null}; }
 }
 async function saveCompanyInfo(info){
-  try{ localStorage.setItem('company-info', JSON.stringify(info)); }catch(e){}
+  try{ localStorage.setItem('company-info', JSON.stringify(info)); showSaveToast(); }catch(e){}
 }
 
 function newProjectObj(name){
@@ -840,6 +861,8 @@ async function afterAdd(){
   updatePreviewCalc();
 }
 async function removeItem(id){
+  const it = currentProject.items.find(i=>i.id===id);
+  if(!confirm(`「${it ? it.name : "この部材"}」を削除しますか？この操作は取り消せません。`)) return;
   currentProject.items = currentProject.items.filter(i=>i.id!==id);
   await saveProject(currentProject);
   renderItems();
@@ -906,6 +929,8 @@ async function savePlateFavorite(){
   renderFavorites();
 }
 async function deleteFavorite(id){
+  const fav = favorites.find(f=>f.id===id);
+  if(!confirm(`「${fav ? fav.label : "このお気に入り"}」を削除しますか？この操作は取り消せません。`)) return;
   favorites = favorites.filter(f=>f.id!==id);
   await saveFavoritesList(favorites);
   renderFavorites();
