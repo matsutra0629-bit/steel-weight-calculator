@@ -138,6 +138,9 @@
     background:var(--steel-dark); color:#fff; font-weight:700; font-size:12px;
     letter-spacing:.05em; padding:7px 10px; border-bottom:none;
   }
+  .cat-header-row.equipment td{ background:var(--rust); }
+  tr.pv-equipment-row{ background:#FBEEE4; }
+  tr.pv-equipment-row:hover{ background:#F6E2D0; }
   .doc-grand{border-top:2px solid var(--ink); margin-top:4px; padding-top:10px; display:flex; justify-content:flex-end;}
   .doc-grand .stamp{
     border:2px solid var(--rust); color:var(--rust); padding:10px 22px; text-align:right; border-radius:4px;
@@ -1646,12 +1649,13 @@ function updatePreviewCalc(){
     if(it.category !== lastCategory){
       lastCategory = it.category;
       const catRow = document.createElement('tr');
-      catRow.className = 'cat-header-row';
+      catRow.className = 'cat-header-row' + (it.type==='equipment' ? ' equipment' : '');
       catRow.innerHTML = `<td colspan="10">${escapeHtml(it.category)}</td>`;
       tbody.appendChild(catRow);
     }
     no++;
     const tr = document.createElement('tr');
+    if(it.type==='equipment') tr.classList.add('pv-equipment-row');
     const qtyLabel = it.rawQty ? (it.rawQty + it.unitLabel) : "-";
     const weightCell = it.unitWeightLabel==='-' ? '-' : it.weight.toFixed(1);
     const lengthCell = it.lengthMm ? it.lengthMm : "-";
