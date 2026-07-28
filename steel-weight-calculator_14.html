@@ -86,6 +86,11 @@
   .edit-btn{
     border:none; background:none; color:var(--steel); cursor:pointer; font-size:14px; padding:2px 6px;
   }
+  .reorder-btn{
+    border:none; background:none; color:var(--steel); cursor:pointer; font-size:12px; padding:2px 4px; line-height:1;
+  }
+  .reorder-btn:disabled{opacity:.25; cursor:not-allowed;}
+  .reorder-group{display:flex; flex-direction:column; gap:0;}
   .row-actions{display:flex; gap:2px;}
   .tag{font-size:9.5px; padding:1px 6px; border-radius:9px; margin-left:6px; font-weight:700; letter-spacing:.02em; white-space:nowrap; display:inline-block;}
   .tag.ref{background:#F5E3B3; color:#8a6511;}
@@ -498,37 +503,37 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7
 const yen = n => "¥" + Math.round(n).toLocaleString("ja-JP");
 const kg = n => n.toFixed(1) + " kg";
 
-/* =============== storage =============== */
+/* =============== storage (localStorage) =============== */
 async function loadProjectList(){
-  try{ const r = await window.storage.get('project-list', false); return r ? JSON.parse(r.value) : []; }
+  try{ const v = localStorage.getItem('project-list'); return v ? JSON.parse(v) : []; }
   catch(e){ return []; }
 }
 async function saveProjectList(list){
-  try{ await window.storage.set('project-list', JSON.stringify(list), false); }catch(e){}
+  try{ localStorage.setItem('project-list', JSON.stringify(list)); }catch(e){}
 }
 async function loadProject(id){
-  try{ const r = await window.storage.get('project:'+id, false); return r ? JSON.parse(r.value) : null; }
+  try{ const v = localStorage.getItem('project:'+id); return v ? JSON.parse(v) : null; }
   catch(e){ return null; }
 }
 async function saveProject(p){
-  try{ await window.storage.set('project:'+p.id, JSON.stringify(p), false); }catch(e){}
+  try{ localStorage.setItem('project:'+p.id, JSON.stringify(p)); }catch(e){}
 }
 async function deleteProjectStorage(id){
-  try{ await window.storage.delete('project:'+id, false); }catch(e){}
+  try{ localStorage.removeItem('project:'+id); }catch(e){}
 }
 async function loadFavorites(){
-  try{ const r = await window.storage.get('favorites-list', false); return r ? JSON.parse(r.value) : []; }
+  try{ const v = localStorage.getItem('favorites-list'); return v ? JSON.parse(v) : []; }
   catch(e){ return []; }
 }
 async function saveFavoritesList(list){
-  try{ await window.storage.set('favorites-list', JSON.stringify(list), false); }catch(e){}
+  try{ localStorage.setItem('favorites-list', JSON.stringify(list)); }catch(e){}
 }
 async function loadCompanyInfo(){
-  try{ const r = await window.storage.get('company-info', false); return r ? JSON.parse(r.value) : {name:"", logo:null}; }
+  try{ const v = localStorage.getItem('company-info'); return v ? JSON.parse(v) : {name:"", logo:null}; }
   catch(e){ return {name:"", logo:null}; }
 }
 async function saveCompanyInfo(info){
-  try{ await window.storage.set('company-info', JSON.stringify(info), false); }catch(e){}
+  try{ localStorage.setItem('company-info', JSON.stringify(info)); }catch(e){}
 }
 
 function newProjectObj(name){
@@ -897,12 +902,16 @@ function renderFavorites(){
     return;
   }
   wrap.innerHTML = "";
-  favorites.forEach(fav=>{
+  favorites.forEach((fav, idx)=>{
     const row = document.createElement('div');
     row.className = 'fav-row';
     row.dataset.favRow = fav.id;
     const qtyUnit = fav.itemType === "shape" ? "本" : "枚";
     row.innerHTML = `
+      <div class="reorder-group">
+        <button class="reorder-btn" data-act="up" data-id="${fav.id}" title="上へ" ${idx===0?'disabled':''}>▲</button>
+        <button class="reorder-btn" data-act="down" data-id="${fav.id}" title="下へ" ${idx===favorites.length-1?'disabled':''}>▼</button>
+      </div>
       <div class="fav-label">${escapeHtml(fav.label)}<span class="fav-sub">単価 ${fav.unitPrice.toLocaleString('ja-JP')}円/kg</span></div>
       <div class="fav-inputs">
         ${fav.itemType==="shape" ? `<span class="fav-len-wrap"><input type="number" step="1" placeholder="長さ" data-f="favLength" style="width:92px;"><span class="fav-unit">mm</span></span>` : ``}
@@ -919,6 +928,21 @@ function renderFavorites(){
   wrap.querySelectorAll('[data-act="del"]').forEach(b=>{
     b.addEventListener('click', ()=>deleteFavorite(b.dataset.id));
   });
+  wrap.querySelectorAll('[data-act="up"]').forEach(b=>{
+    b.addEventListener('click', ()=>moveFavorite(b.dataset.id, -1));
+  });
+  wrap.querySelectorAll('[data-act="down"]').forEach(b=>{
+    b.addEventListener('click', ()=>moveFavorite(b.dataset.id, 1));
+  });
+}
+async function moveFavorite(id, dir){
+  const idx = favorites.findIndex(f=>f.id===id);
+  if(idx<0) return;
+  const newIdx = idx + dir;
+  if(newIdx<0 || newIdx>=favorites.length) return;
+  [favorites[idx], favorites[newIdx]] = [favorites[newIdx], favorites[idx]];
+  await saveFavoritesList(favorites);
+  renderFavorites();
 }
 async function addFromFavorite(favId){
   const fav = favorites.find(f=>f.id===favId);
