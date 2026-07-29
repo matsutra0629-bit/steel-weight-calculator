@@ -1462,8 +1462,9 @@ function addEquipmentItem(){
     unitPrice, amount: qty*unitPrice,
     rawQty: qty, unitLabel: unit, lengthMm
   });
-  $('eq_name').value=""; $('eq_spec').value=""; $('eq_qty').value="1";
-  $('eq_price').value=""; $('eq_weight').value=""; $('eq_length').value="";
+  $('eq_category').value=""; $('eq_name').value=""; $('eq_spec').value=""; $('eq_qty').value="1";
+  $('eq_unit').value=""; $('eq_price').value=""; $('eq_weight').value=""; $('eq_length').value="";
+  $('eq_lengthWrap').style.display = 'none';
   afterEquipmentAdd();
 }
 async function afterEquipmentAdd(){
@@ -1630,8 +1631,10 @@ function groupItemsForPreview(items){
   const list = Array.from(map.values());
   list.sort((a,b)=>{
     const ca = CATEGORY_ORDER.indexOf(a.category), cb = CATEGORY_ORDER.indexOf(b.category);
-    if(ca !== cb) return (ca<0?999:ca) - (cb<0?999:cb);
-    return a.spec.localeCompare(b.spec, 'ja');
+    const ra = ca<0 ? 999 : ca, rb = cb<0 ? 999 : cb;
+    if(ra !== rb) return ra - rb;
+    if(a.category !== b.category) return a.category.localeCompare(b.category, 'ja');
+    return 0;
   });
   return list;
 }
