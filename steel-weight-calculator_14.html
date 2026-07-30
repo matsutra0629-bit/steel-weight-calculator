@@ -1722,6 +1722,23 @@ function groupKeyOf(it){
   const lengthKey = (it.type==="shape"||it.type==="equipment") ? it.lengthMm : '';
   return [it.type, it.category||'', it.name, it.spec, it.material, it.unitPrice, lengthKey].join('|');
 }
+function naturalCompare(a,b){
+  const re = /(\d+(?:\.\d+)?)|(\D+)/g;
+  const pa = String(a||'').match(re) || [];
+  const pb = String(b||'').match(re) || [];
+  const len = Math.max(pa.length, pb.length);
+  for(let i=0;i<len;i++){
+    const xa = pa[i], xb = pb[i];
+    if(xa === undefined) return -1;
+    if(xb === undefined) return 1;
+    if(xa === xb) continue;
+    const na = parseFloat(xa), nb = parseFloat(xb);
+    if(!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+    const c = xa.localeCompare(xb, 'ja');
+    if(c !== 0) return c;
+  }
+  return 0;
+}
 function groupItemsForPreview(items){
   const map = new Map();
   items.forEach(it=>{
@@ -1745,7 +1762,9 @@ function groupItemsForPreview(items){
     const ra = ca<0 ? 999 : ca, rb = cb<0 ? 999 : cb;
     if(ra !== rb) return ra - rb;
     if(a.category !== b.category) return a.category.localeCompare(b.category, 'ja');
-    return 0;
+    const specCmp = naturalCompare(a.spec, b.spec);
+    if(specCmp !== 0) return specCmp;
+    return naturalCompare(a.name, b.name);
   });
   return list;
 }
