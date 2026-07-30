@@ -368,7 +368,7 @@
         <div class="grid" style="margin-top:10px;">
           <div class="field" id="p_dimsW"><label>縦(mm)</label><input id="p_h" type="number" step="1"></div>
           <div class="field" id="p_dimsW2"><label>横(mm)</label><input id="p_w" type="number" step="1"></div>
-          <div class="field" id="p_areaW" style="display:none;"><label>面積(m²)</label><input id="p_area" type="number" step="0.001"></div>
+          <div class="field" id="p_areaW" style="display:none;"><label>面積(mm²)</label><input id="p_area" type="number" step="0.01"></div>
           <div class="field"><label>厚さ(mm)</label><input id="p_t" type="number" step="0.1"></div>
           <div class="field"><label>部材名</label><input id="p_name" type="text" placeholder="ベースプレート"></div>
           <div class="field"><label>材質</label>
@@ -949,8 +949,9 @@ function plateCalc(){
     areaM2 = (hMm/1000)*(wMm/1000);
     dimsLabel = hMm+"×"+wMm+"×t"+tMm;
   } else {
-    areaM2 = parseFloat($('p_area').value) || 0;
-    dimsLabel = areaM2+"m²×t"+tMm;
+    const areaMm2 = parseFloat($('p_area').value) || 0;
+    areaM2 = areaMm2 / 1000000;
+    dimsLabel = areaMm2+"mm²×t"+tMm;
   }
   const density = getMaterialDensity($('p_material'), $('p_customDensity'));
   const qty = parseFloat($('p_qty').value) || 0;
@@ -1191,7 +1192,7 @@ async function addFromFavorite(favId){
     const areaM2 = fav.plateMode === "dims" ? (fav.h/1000)*(fav.w/1000) : fav.area;
     const unitWeight = areaM2 * (fav.t/1000) * fav.density * 1000;
     const totalWeight = unitWeight * qty;
-    const dimsLabel = fav.plateMode === "dims" ? (fav.h+"×"+fav.w+"×t"+fav.t) : (fav.area+"m²×t"+fav.t);
+    const dimsLabel = fav.plateMode === "dims" ? (fav.h+"×"+fav.w+"×t"+fav.t) : ((fav.area*1000000)+"mm²×t"+fav.t);
     currentProject.items.push({
       id: uid(), type:"plate",
       name: "鉄板",
@@ -1366,7 +1367,7 @@ function renderItems(){
             ×t<input class="edit-cell-input mono" data-f="plateT" type="number" step="0.1" value="${it.tMm}" style="width:48px;">mm`;
         } else {
           specCell = `鉄板 面積
-            <input class="edit-cell-input mono" data-f="plateArea" type="number" step="0.001" value="${it.areaM2}" style="width:72px;">m²
+            <input class="edit-cell-input mono" data-f="plateArea" type="number" step="0.01" value="${it.areaM2*1000000}" style="width:72px;">mm²
             ×t<input class="edit-cell-input mono" data-f="plateT" type="number" step="0.1" value="${it.tMm}" style="width:48px;">mm`;
         }
       } else {
@@ -1511,9 +1512,10 @@ async function saveItemEdit(id){
       it.spec = "鉄板 " + newH + "×" + newW + "×t" + newT + "mm";
     } else {
       const areaField = row.querySelector('[data-f="plateArea"]');
-      newAreaM2 = parseFloat(areaField.value) || 0;
+      const newAreaMm2 = parseFloat(areaField.value) || 0;
+      newAreaM2 = newAreaMm2 / 1000000;
       if(newAreaM2<=0 || newT<=0){ alert("面積・厚さは正の値を入力してください。"); return; }
-      it.spec = "鉄板 " + newAreaM2 + "m²×t" + newT + "mm";
+      it.spec = "鉄板 " + newAreaMm2 + "mm²×t" + newT + "mm";
     }
     it.tMm = newT;
     it.areaM2 = newAreaM2;
