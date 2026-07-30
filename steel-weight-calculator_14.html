@@ -14,8 +14,36 @@
     --stripe:#EFEBE2;
     --white:#FFFFFF;
     --danger:#B23A32;
+    --heading:var(--steel-dark);
+    --input-bg:#FFFFFF;
+    --hover-bg:#E8EFF3;
+    --editing-bg:#EFF5FA;
+    --ref-cell-bg:#FBF3DE;
+    --calc-cell-bg:#EAF6F0;
+  }
+  :root[data-theme="dark"]{
+    --paper:#171B22;
+    --ink:#E7E4DC;
+    --steel:#6FA8CC;
+    --line:#333B47;
+    --stripe:#232A34;
+    --white:#1E242C;
+    --danger:#E0685C;
+    --heading:#8FC1E3;
+    --input-bg:#262D37;
+    --hover-bg:#2B3540;
+    --editing-bg:#24313D;
+    --ref-cell-bg:#3A331F;
+    --calc-cell-bg:#1F3329;
+  }
+  /* 材料手配書プレビューは印刷物として常に紙面(ライト)配色で表示する */
+  :root[data-theme="dark"] #preview{
+    --paper:#F6F4EF; --ink:#1C2B3A; --steel:#3D6B8C; --line:#D8D3C7; --stripe:#EFEBE2; --white:#FFFFFF;
+    --danger:#B23A32; --heading:#294A63; --input-bg:#FFFFFF; --hover-bg:#E8EFF3; --editing-bg:#EFF5FA;
+    --ref-cell-bg:#FBF3DE; --calc-cell-bg:#EAF6F0;
   }
   *{box-sizing:border-box;}
+  html{background:var(--paper);}
   body{
     margin:0; padding:0; background:var(--paper); color:var(--ink);
     font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,"Noto Sans JP",sans-serif;
@@ -34,7 +62,7 @@
   .topbar .sub{font-size:11px; opacity:.75; display:block; margin-top:2px; font-weight:400;}
   select, input, button{
     font-family:inherit; font-size:13px; border-radius:6px; border:1px solid var(--line);
-    padding:7px 9px; background:#fff; color:var(--ink);
+    padding:7px 9px; background:var(--input-bg); color:var(--ink);
   }
   .topbar select{ min-width:150px; }
   .btn{
@@ -54,7 +82,7 @@
     padding:9px 18px; cursor:pointer; font-weight:600; color:#8b8578; font-size:13px;
     border-bottom:2px solid transparent; margin-bottom:-2px;
   }
-  .tab.active{color:var(--steel-dark); border-bottom-color:var(--rust);}
+  .tab.active{color:var(--heading); border-bottom-color:var(--rust);}
 
   .panel{display:none;}
   .panel.active{display:block;}
@@ -63,7 +91,7 @@
     background:var(--white); border:1px solid var(--line); border-radius:10px;
     padding:18px 20px; margin-bottom:18px;
   }
-  .card h2{font-size:13px; margin:0 0 14px; color:var(--steel-dark); letter-spacing:.04em;
+  .card h2{font-size:13px; margin:0 0 14px; color:var(--heading); letter-spacing:.04em;
     text-transform:uppercase; font-weight:700; display:flex; align-items:center; gap:8px;}
   .card h2::before{content:""; width:4px; height:14px; background:var(--rust); display:inline-block; border-radius:2px;}
   .card-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px;}
@@ -80,7 +108,7 @@
   th,td{padding:8px 9px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap;}
   th{background:var(--steel-dark); color:#fff; font-weight:600; font-size:11.5px; letter-spacing:.02em;}
   tbody tr:nth-child(even){background:var(--stripe);}
-  tbody tr:hover{background:#E8EFF3;}
+  tbody tr:hover{background:var(--hover-bg);}
   td.num, th.num{text-align:right;}
   .del-btn{
     border:none; background:none; color:var(--danger); cursor:pointer; font-size:15px; padding:2px 6px;
@@ -97,10 +125,10 @@
   .tag{font-size:9.5px; padding:1px 6px; border-radius:9px; margin-left:6px; font-weight:700; letter-spacing:.02em; white-space:nowrap; display:inline-block;}
   .tag.ref{background:#F5E3B3; color:#8a6511;}
   .tag.calc{background:#D6EDE0; color:#1f6b46;}
-  td.ref-cell{background:#FBF3DE;}
-  td.calc-cell{background:#EAF6F0;}
+  td.ref-cell{background:var(--ref-cell-bg);}
+  td.calc-cell{background:var(--calc-cell-bg);}
   .edit-cell-input{width:100%; padding:4px 5px; font-size:12.5px; border:1px solid var(--steel); border-radius:4px;}
-  tr.editing-row{background:#EFF5FA !important;}
+  tr.editing-row{background:var(--editing-bg) !important;}
   .empty-row td{text-align:center; color:#9a9488; padding:26px; font-style:normal;}
   .fav-row{
     display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 4px; border-bottom:1px solid var(--line);
@@ -119,14 +147,14 @@
   }
   .totals .box{text-align:right;}
   .totals .box .lbl{font-size:11px; color:#8b8578; font-weight:600;}
-  .totals .box .val{font-size:22px; font-weight:700; color:var(--steel-dark);}
+  .totals .box .val{font-size:22px; font-weight:700; color:var(--heading);}
   .totals .box .val.money{color:var(--rust);}
 
   .note{font-size:11.5px; color:#8b8578; margin-top:6px; line-height:1.6;}
   .note b{color:var(--ink);}
 
   /* preview / print */
-  #preview{background:#fff; border:1px solid var(--line); border-radius:10px; padding:34px 40px;}
+  #preview{background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:34px 40px;}
   .doc-company-bar{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
   .doc-company-bar img{max-height:52px; max-width:170px; object-fit:contain;}
   #pv_companyName{font-weight:700; font-size:15px; color:var(--ink);}
@@ -163,7 +191,7 @@
     align-items:center; justify-content:center;
   }
   .proj-modal-bg.show{display:flex;}
-  .proj-modal{background:#fff; border-radius:10px; padding:22px; width:320px;}
+  .proj-modal{background:var(--white); border-radius:10px; padding:22px; width:320px;}
   .proj-modal h3{margin:0 0 14px; font-size:14px;}
   .proj-modal .row{display:flex; gap:8px; margin-top:14px; justify-content:flex-end;}
 
@@ -217,6 +245,16 @@
     .ss-val{font-size:14px;}
   }
 </style>
+<script>
+(function(){
+  try{
+    var saved = localStorage.getItem('themeMode');
+    var theme = saved === 'dark' || saved === 'light' ? saved
+      : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.dataset.theme = theme;
+  }catch(e){}
+})();
+</script>
 </head>
 <body>
 <div id="app">
@@ -233,6 +271,7 @@
     <button class="btn ghost no-print" id="exportProjectBtn" title="この現場のデータをJSONファイルで保存">⭳ この現場</button>
     <button class="btn ghost no-print" id="exportAllBtn" title="すべての現場のデータをJSONファイルで保存">⭳ 全現場</button>
     <button class="btn ghost no-print" id="importBtn" title="JSONファイルから現場データを読み込む">⭱ インポート</button>
+    <button class="btn ghost no-print" id="themeToggleBtn" title="表示切替(ライト/ダーク)">🌙 ダークモード</button>
     <input type="file" id="importFile" accept="application/json" style="display:none;">
   </div>
 
@@ -301,7 +340,7 @@
         <div class="note" id="s_calcPreview"></div>
         <div style="margin-top:12px; display:flex; gap:8px;">
           <button class="btn rust" id="s_addBtn">＋ リストに追加</button>
-          <button class="btn ghost" id="s_favBtn" style="background:#EFEBE2; color:var(--ink); border-color:var(--line);">☆ お気に入りに登録</button>
+          <button class="btn ghost" id="s_favBtn" style="background:var(--stripe); color:var(--ink); border-color:var(--line);">☆ お気に入りに登録</button>
         </div>
       </div>
 
@@ -327,7 +366,7 @@
         <div class="note" id="p_calcPreview"></div>
         <div style="margin-top:12px; display:flex; gap:8px;">
           <button class="btn rust" id="p_addBtn">＋ リストに追加</button>
-          <button class="btn ghost" id="p_favBtn" style="background:#EFEBE2; color:var(--ink); border-color:var(--line);">☆ お気に入りに登録</button>
+          <button class="btn ghost" id="p_favBtn" style="background:var(--stripe); color:var(--ink); border-color:var(--line);">☆ お気に入りに登録</button>
         </div>
       </div>
 
@@ -638,6 +677,19 @@ async function saveCompanyInfo(info){
   try{ localStorage.setItem('company-info', JSON.stringify(info)); showSaveToast(); }catch(e){}
 }
 
+/* =============== theme (light/dark) =============== */
+function applyThemeButtonLabel(){
+  const dark = document.documentElement.dataset.theme === 'dark';
+  $('themeToggleBtn').textContent = dark ? "☀️ ライトモード" : "🌙 ダークモード";
+}
+function toggleTheme(){
+  const dark = document.documentElement.dataset.theme === 'dark';
+  const next = dark ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try{ localStorage.setItem('themeMode', next); }catch(e){}
+  applyThemeButtonLabel();
+}
+
 function newProjectObj(name){
   return { id: uid(), name: name, siteName: name, date: new Date().toISOString().slice(0,10),
     person:"", defaultPrice:500, items:[], equipmentItems:[] };
@@ -668,6 +720,7 @@ async function init(){
   renderFavorites();
   $('companyName').value = companyInfo.name || "";
   updateCompanyLogoUI();
+  applyThemeButtonLabel();
   bindEvents();
   updatePreviewCalc();
 }
@@ -1802,6 +1855,7 @@ function bindEvents(){
   $('exportProjectBtn').addEventListener('click', exportCurrentProject);
   $('exportAllBtn').addEventListener('click', exportAllProjects);
   $('importBtn').addEventListener('click', ()=> $('importFile').click());
+  $('themeToggleBtn').addEventListener('click', toggleTheme);
   $('importFile').addEventListener('change', handleImportFile);
   $('s_favBtn').addEventListener('click', saveShapeFavorite);
   $('p_favBtn').addEventListener('click', savePlateFavorite);
