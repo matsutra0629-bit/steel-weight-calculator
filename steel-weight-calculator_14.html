@@ -66,6 +66,8 @@
   .card h2{font-size:13px; margin:0 0 14px; color:var(--steel-dark); letter-spacing:.04em;
     text-transform:uppercase; font-weight:700; display:flex; align-items:center; gap:8px;}
   .card h2::before{content:""; width:4px; height:14px; background:var(--rust); display:inline-block; border-radius:2px;}
+  .card-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px;}
+  .card-head h2{margin-bottom:0;}
 
   .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px;}
   .field{display:flex; flex-direction:column; gap:4px;}
@@ -91,7 +93,7 @@
   }
   .reorder-btn:disabled{opacity:.25; cursor:not-allowed;}
   .reorder-group{display:flex; flex-direction:column; gap:0;}
-  .row-actions{display:flex; gap:2px;}
+  .actions-inner{display:flex; align-items:center; gap:2px;}
   .tag{font-size:9.5px; padding:1px 6px; border-radius:9px; margin-left:6px; font-weight:700; letter-spacing:.02em; white-space:nowrap; display:inline-block;}
   .tag.ref{background:#F5E3B3; color:#8a6511;}
   .tag.calc{background:#D6EDE0; color:#1f6b46;}
@@ -340,7 +342,10 @@
     </div>
 
     <div class="card">
-      <h2>部材リスト</h2>
+      <div class="card-head">
+        <h2>部材リスト</h2>
+        <button class="btn danger small" id="clearItemsBtn">全て削除</button>
+      </div>
       <div style="overflow-x:auto;">
         <table id="itemsTable">
           <thead>
@@ -395,7 +400,10 @@
     </div>
 
     <div class="card">
-      <h2>その他部材リスト</h2>
+      <div class="card-head">
+        <h2>その他部材リスト</h2>
+        <button class="btn danger small" id="clearEquipmentBtn">全て削除</button>
+      </div>
       <div style="overflow-x:auto;">
         <table id="equipmentTable">
           <thead>
@@ -933,6 +941,15 @@ async function removeItem(id){
   renderItems();
   updatePreviewCalc();
 }
+async function clearItems(){
+  const n = currentProject.items.length;
+  if(n===0) return;
+  if(!confirm(`部材リストの${n}件をすべて削除しますか？この操作は取り消せません。`)) return;
+  currentProject.items = [];
+  await saveProject(currentProject);
+  renderItems();
+  updatePreviewCalc();
+}
 
 /* =============== favorites =============== */
 function getBaseWeightForSize(cat, sizeStr){
@@ -1295,10 +1312,10 @@ function renderItems(){
         <td class="num mono" data-label="重量計(kg)">${(it.weight).toFixed(1)}</td>
         <td class="num" data-label="単価(円/kg)"><input class="edit-cell-input mono" data-f="unitPrice" type="number" step="1" value="${it.unitPrice}" style="width:70px; text-align:right;"></td>
         <td class="num mono" data-label="金額(円)">${yen(it.amount)}</td>
-        <td class="row-actions">
+        <td class="row-actions"><div class="actions-inner">
           <button class="edit-btn" data-id="${it.id}" data-act="save" title="保存">✓</button>
           <button class="del-btn" data-id="${it.id}" data-act="cancel" title="キャンセル">✕</button>
-        </td>
+        </div></td>
       `;
     } else {
       tr.innerHTML = `
@@ -1310,14 +1327,14 @@ function renderItems(){
         <td class="num mono" data-label="重量計(kg)">${it.weight.toFixed(1)}</td>
         <td class="num mono" data-label="単価(円/kg)">${it.unitPrice.toLocaleString('ja-JP')}</td>
         <td class="num mono" data-label="金額(円)">${yen(it.amount)}</td>
-        <td class="row-actions">
+        <td class="row-actions"><div class="actions-inner">
           <div class="reorder-group">
             <button class="reorder-btn" data-id="${it.id}" data-act="up" title="上へ" ${idx===0?'disabled':''}>▲</button>
             <button class="reorder-btn" data-id="${it.id}" data-act="down" title="下へ" ${idx===currentProject.items.length-1?'disabled':''}>▼</button>
           </div>
           <button class="edit-btn" data-id="${it.id}" data-act="edit" title="編集">✎</button>
           <button class="del-btn" data-id="${it.id}" data-act="delete" title="削除">✕</button>
-        </td>
+        </div></td>
       `;
     }
     tbody.appendChild(tr);
@@ -1480,6 +1497,15 @@ async function removeEquipmentItem(id){
   renderEquipmentItems();
   updatePreviewCalc();
 }
+async function clearEquipmentItems(){
+  const n = (currentProject.equipmentItems||[]).length;
+  if(n===0) return;
+  if(!confirm(`その他部材リストの${n}件をすべて削除しますか？この操作は取り消せません。`)) return;
+  currentProject.equipmentItems = [];
+  await saveProject(currentProject);
+  renderEquipmentItems();
+  updatePreviewCalc();
+}
 async function moveEquipmentItem(id, dir){
   const idx = currentProject.equipmentItems.findIndex(i=>i.id===id);
   if(idx<0) return;
@@ -1516,10 +1542,10 @@ function renderEquipmentItems(){
         <td class="num" data-label="単価(円)"><input class="edit-cell-input mono" data-f="unitPrice" type="number" step="1" value="${it.unitPrice}" style="width:70px; text-align:right;"></td>
         <td class="num" data-label="重量計(kg)"><input class="edit-cell-input mono" data-f="weightPerUnit" type="number" step="0.01" value="${it.weightPerUnit ?? ''}" placeholder="未入力可" style="width:70px; text-align:right;"></td>
         <td class="num mono" data-label="金額(円)">${yen(it.amount)}</td>
-        <td class="row-actions">
+        <td class="row-actions"><div class="actions-inner">
           <button class="edit-btn" data-id="${it.id}" data-act="save" title="保存">✓</button>
           <button class="del-btn" data-id="${it.id}" data-act="cancel" title="キャンセル">✕</button>
-        </td>
+        </div></td>
       `;
     } else {
       tr.innerHTML = `
@@ -1531,14 +1557,14 @@ function renderEquipmentItems(){
         <td class="num mono" data-label="単価(円)">${it.unitPrice.toLocaleString('ja-JP')}</td>
         <td class="num mono" data-label="重量計(kg)">${it.unitWeightLabel==='-' ? '-' : it.weight.toFixed(1)}</td>
         <td class="num mono" data-label="金額(円)">${yen(it.amount)}</td>
-        <td class="row-actions">
+        <td class="row-actions"><div class="actions-inner">
           <div class="reorder-group">
             <button class="reorder-btn" data-id="${it.id}" data-act="up" title="上へ" ${idx===0?'disabled':''}>▲</button>
             <button class="reorder-btn" data-id="${it.id}" data-act="down" title="下へ" ${idx===items.length-1?'disabled':''}>▼</button>
           </div>
           <button class="edit-btn" data-id="${it.id}" data-act="edit" title="編集">✎</button>
           <button class="del-btn" data-id="${it.id}" data-act="delete" title="削除">✕</button>
-        </td>
+        </div></td>
       `;
     }
     tbody.appendChild(tr);
@@ -1780,6 +1806,8 @@ function bindEvents(){
   $('s_favBtn').addEventListener('click', saveShapeFavorite);
   $('p_favBtn').addEventListener('click', savePlateFavorite);
   $('eq_addBtn').addEventListener('click', addEquipmentItem);
+  $('clearItemsBtn').addEventListener('click', clearItems);
+  $('clearEquipmentBtn').addEventListener('click', clearEquipmentItems);
   $('eq_category').addEventListener('input', ()=>{
     $('eq_lengthWrap').style.display = isBoltCategory($('eq_category').value) ? '' : 'none';
   });
