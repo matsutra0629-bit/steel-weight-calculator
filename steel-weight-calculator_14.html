@@ -328,6 +328,7 @@
         <label><input type="radio" name="itemType" value="shape" checked> 形鋼(H形鋼・角パイプ・アングル・溝形鋼)</label>
         <label><input type="radio" name="itemType" value="plate"> 鉄板</label>
         <label><input type="radio" name="itemType" value="expand"> エキスパンドメタル</label>
+        <label><input type="radio" name="itemType" value="checker"> 縞鋼板</label>
       </div>
 
       <!-- 形鋼フォーム -->
@@ -408,6 +409,31 @@
         <div style="margin-top:12px; display:flex; gap:8px;">
           <button class="btn rust" id="ex_addBtn">＋ リストに追加</button>
           <button class="btn ghost" id="ex_favBtn" style="background:var(--stripe); color:var(--ink); border-color:var(--line);">☆ お気に入りに登録</button>
+        </div>
+      </div>
+
+      <!-- 縞鋼板フォーム -->
+      <div id="form-checker" style="margin-top:12px; display:none;">
+        <div class="radiorow">
+          <label><input type="radio" name="checkerMode" value="dims" checked> 縦×横で入力</label>
+          <label><input type="radio" name="checkerMode" value="area"> 面積を直接入力</label>
+        </div>
+        <div class="grid" style="margin-top:10px;">
+          <div class="field" id="ck_dimsW"><label>縦(mm)</label><input id="ck_h" type="number" step="1"></div>
+          <div class="field" id="ck_dimsW2"><label>横(mm)</label><input id="ck_w" type="number" step="1"></div>
+          <div class="field" id="ck_areaW" style="display:none;"><label>面積(mm²)</label><input id="ck_area" type="number" step="0.01"></div>
+          <div class="field"><label>板厚(mm)</label>
+            <select id="ck_thick"></select>
+          </div>
+          <div class="field"><label>部材名</label><input id="ck_name" type="text" placeholder="縞鋼板"></div>
+          <div class="field"><label>枚数</label><input id="ck_qty" type="number" step="1" value="1"></div>
+          <div class="field"><label>単価(円/kg・任意)</label><input id="ck_price" type="number" step="1" placeholder="既定値を使用"></div>
+        </div>
+        <div class="note">JIS規格の単位質量(kg/㎡、凸部含む)で計算します(材質は鉄(SS)固定)。</div>
+        <div class="note" id="ck_calcPreview"></div>
+        <div style="margin-top:12px; display:flex; gap:8px;">
+          <button class="btn rust" id="ck_addBtn">＋ リストに追加</button>
+          <button class="btn ghost" id="ck_favBtn" style="background:var(--stripe); color:var(--ink); border-color:var(--line);">☆ お気に入りに登録</button>
         </div>
       </div>
 
@@ -695,6 +721,11 @@ const EXPAND_DATA = [
   ["XS81",2.68],["XS82",4.71],["XS83",7.54],
   ["XS91",2.18],["XS92",3.69],["XS93",5.74]
 ];
+/* 縞鋼板(チェッカープレート) JIS規格 呼び厚さ別 単位質量(kg/㎡)。凸部(山)の質量を含むためt×密度では算出できず、メーカー公表値を直接使用。 */
+const CHECKER_DATA = [
+  [2.3,19.73],[3.2,26.82],[4.5,37.02],[6.0,48.8],[9.0,72.34],
+  [12.0,95.9],[16.0,127.3],[19.0,150.9],[22.0,174.4],[25.0,197.9]
+];
 
 /* =============== state =============== */
 let projects = [];       // [{id,name}]
@@ -883,6 +914,12 @@ function populateSelects(){
     o.value = code; o.textContent = code + "  (" + w + " kg/㎡)";
     exSel.appendChild(o);
   });
+  const ckSel = $('ck_thick');
+  CHECKER_DATA.forEach(([t,w])=>{
+    const o = document.createElement('option');
+    o.value = t; o.textContent = "t" + t + "  (" + w + " kg/㎡)";
+    ckSel.appendChild(o);
+  });
 }
 function isFormulaCategory(cat){
   const m = STEEL_DATA[cat];
@@ -1024,6 +1061,27 @@ function expandCalc(){
   const totalWeight = unitWeight * qty;
   return { dimsLabel, unitWeight, qty, totalWeight, mode, hMm, wMm, areaM2, jisCode, unitWeightKgM2 };
 }
+function checkerCalc(){
+  const mode = document.querySelector('input[name=checkerMode]:checked').value;
+  let areaM2, hMm=null, wMm=null;
+  let dimsLabel;
+  if(mode === "dims"){
+    hMm = parseFloat($('ck_h').value) || 0;
+    wMm = parseFloat($('ck_w').value) || 0;
+    areaM2 = (hMm/1000)*(wMm/1000);
+    dimsLabel = hMm+"×"+wMm+"mm";
+  } else {
+    const areaMm2 = parseFloat($('ck_area').value) || 0;
+    areaM2 = areaMm2 / 1000000;
+    dimsLabel = areaMm2+"mm²";
+  }
+  const tMm = parseFloat($('ck_thick').value);
+  const unitWeightKgM2 = (CHECKER_DATA.find(([t])=>t===tMm) || [null,0])[1];
+  const qty = parseFloat($('ck_qty').value) || 0;
+  const unitWeight = areaM2 * unitWeightKgM2;
+  const totalWeight = unitWeight * qty;
+  return { dimsLabel, unitWeight, qty, totalWeight, mode, hMm, wMm, areaM2, tMm, unitWeightKgM2 };
+}
 
 function updateShapePreview(){
   const c = shapeCalc();
@@ -1037,6 +1095,10 @@ function updatePlatePreview(){
 function updateExpandPreview(){
   const c = expandCalc();
   $('ex_calcPreview').innerHTML = `1枚あたり <b>${c.unitWeight.toFixed(2)} kg</b>　×${c.qty}枚 = <b>${c.totalWeight.toFixed(1)} kg</b>`;
+}
+function updateCheckerPreview(){
+  const c = checkerCalc();
+  $('ck_calcPreview').innerHTML = `1枚あたり <b>${c.unitWeight.toFixed(2)} kg</b>　×${c.qty}枚 = <b>${c.totalWeight.toFixed(1)} kg</b>`;
 }
 
 /* =============== items list =============== */
@@ -1102,6 +1164,27 @@ function addExpandItem(){
     expandMode: c.mode, hMm: c.hMm, wMm: c.wMm, areaM2: c.areaM2, jisCode: c.jisCode, unitWeightKgM2: c.unitWeightKgM2
   });
   $('ex_name').value=""; $('ex_price').value="";
+  afterAdd();
+}
+function addCheckerItem(){
+  const c = checkerCalc();
+  if(c.qty<=0){ alert("枚数を確認してください。"); return; }
+  if(!(c.areaM2>0)){ alert("寸法・面積を入力してください。"); return; }
+  const price = parseFloat($('ck_price').value);
+  const unitPrice = isNaN(price) ? (currentProject.defaultPrice||0) : price;
+  currentProject.items.push({
+    id: uid(), type:"checker",
+    name: $('ck_name').value || "縞鋼板",
+    spec: "縞鋼板 t" + c.tMm + " " + c.dimsLabel,
+    material: "鉄(SS)",
+    unitWeightLabel: c.unitWeight.toFixed(2) + " kg/枚",
+    qtyLabel: c.qty + "枚",
+    weight: c.totalWeight,
+    unitPrice, amount: c.totalWeight*unitPrice,
+    rawQty: c.qty, unitLabel:"枚", isReference:false,
+    checkerMode: c.mode, hMm: c.hMm, wMm: c.wMm, areaM2: c.areaM2, tMm: c.tMm, unitWeightKgM2: c.unitWeightKgM2
+  });
+  $('ck_name').value=""; $('ck_price').value="";
   afterAdd();
 }
 async function afterAdd(){
@@ -1197,6 +1280,21 @@ async function saveExpandFavorite(){
     unitPrice: isNaN(price) ? (currentProject.defaultPrice||0) : price
   };
   fav.label = "エキスパンドメタル " + c.jisCode + " " + c.dimsLabel;
+  favorites.push(fav);
+  await saveFavoritesList(favorites);
+  renderFavorites();
+}
+async function saveCheckerFavorite(){
+  const c = checkerCalc();
+  if(!(c.areaM2>0)){ alert("先に寸法・面積を入力してください。"); return; }
+  const price = parseFloat($('ck_price').value);
+  const fav = {
+    id: uid(), itemType: "checker",
+    checkerMode: c.mode, h: c.hMm, w: c.wMm, area: c.areaM2,
+    tMm: c.tMm, unitWeightKgM2: c.unitWeightKgM2,
+    unitPrice: isNaN(price) ? (currentProject.defaultPrice||0) : price
+  };
+  fav.label = "縞鋼板 t" + c.tMm + " " + c.dimsLabel;
   favorites.push(fav);
   await saveFavoritesList(favorites);
   renderFavorites();
@@ -1310,7 +1408,7 @@ async function addFromFavorite(favId){
       rawQty: qty, unitLabel:"枚", isReference:false,
       plateMode: fav.plateMode, hMm: fav.h, wMm: fav.w, areaM2: fav.area, tMm: fav.t, density: fav.density
     });
-  } else {
+  } else if(fav.itemType === "expand"){
     const areaM2 = fav.expandMode === "dims" ? (fav.h/1000)*(fav.w/1000) : fav.area;
     const unitWeightKgM2 = fav.unitWeightKgM2 != null ? fav.unitWeightKgM2 : (EXPAND_DATA.find(([c])=>c===fav.jisCode) || [null,0])[1];
     const unitWeight = areaM2 * unitWeightKgM2;
@@ -1327,6 +1425,25 @@ async function addFromFavorite(favId){
       unitPrice: fav.unitPrice, amount: totalWeight*fav.unitPrice,
       rawQty: qty, unitLabel:"枚", isReference:false,
       expandMode: fav.expandMode, hMm: fav.h, wMm: fav.w, areaM2: fav.area, jisCode: fav.jisCode, unitWeightKgM2
+    });
+  } else {
+    const areaM2 = fav.checkerMode === "dims" ? (fav.h/1000)*(fav.w/1000) : fav.area;
+    const tMm = fav.tMm != null ? fav.tMm : 3.2;
+    const unitWeightKgM2 = fav.unitWeightKgM2 != null ? fav.unitWeightKgM2 : (CHECKER_DATA.find(([t])=>t===tMm) || [null,0])[1];
+    const unitWeight = areaM2 * unitWeightKgM2;
+    const totalWeight = unitWeight * qty;
+    const dimsLabel = fav.checkerMode === "dims" ? (fav.h+"×"+fav.w+"mm") : ((fav.area*1000000)+"mm²");
+    currentProject.items.push({
+      id: uid(), type:"checker",
+      name: "縞鋼板",
+      spec: "縞鋼板 t" + tMm + " " + dimsLabel,
+      material: "鉄(SS)",
+      unitWeightLabel: unitWeight.toFixed(2) + " kg/枚",
+      qtyLabel: qty + "枚",
+      weight: totalWeight,
+      unitPrice: fav.unitPrice, amount: totalWeight*fav.unitPrice,
+      rawQty: qty, unitLabel:"枚", isReference:false,
+      checkerMode: fav.checkerMode, hMm: fav.h, wMm: fav.w, areaM2: fav.area, tMm, unitWeightKgM2
     });
   }
   row.querySelector('[data-f="favQty"]').value = "1";
@@ -1505,6 +1622,18 @@ function renderItems(){
             <select class="edit-cell-input" data-f="expandJis" style="width:88px;">${exOptionsHtml}</select>
             面積<input class="edit-cell-input mono" data-f="expandArea" type="number" step="0.01" value="${it.areaM2*1000000}" style="width:72px;">mm²`;
         }
+      } else if(it.type === "checker"){
+        const ckOptionsHtml = CHECKER_DATA.map(([t])=>`<option value="${t}" ${t===it.tMm?'selected':''}>t${t}</option>`).join('');
+        if(it.checkerMode === "dims"){
+          specCell = `縞鋼板
+            <select class="edit-cell-input" data-f="checkerThick" style="width:72px;">${ckOptionsHtml}</select>
+            <input class="edit-cell-input mono" data-f="checkerH" type="number" step="1" value="${it.hMm}" style="width:56px;">×
+            <input class="edit-cell-input mono" data-f="checkerW" type="number" step="1" value="${it.wMm}" style="width:56px;">mm`;
+        } else {
+          specCell = `縞鋼板
+            <select class="edit-cell-input" data-f="checkerThick" style="width:72px;">${ckOptionsHtml}</select>
+            面積<input class="edit-cell-input mono" data-f="checkerArea" type="number" step="0.01" value="${it.areaM2*1000000}" style="width:72px;">mm²`;
+        }
       } else {
         specCell = escapeHtml(it.spec);
       }
@@ -1517,7 +1646,7 @@ function renderItems(){
         const text = label==="custom" ? "カスタム(比重入力)" : label;
         return `<option value="${val}" ${val===matSelectValue?'selected':''}>${text}</option>`;
       }).join('');
-      const materialCell = it.type === "expand"
+      const materialCell = (it.type === "expand" || it.type === "checker")
         ? `<span class="mono">鉄(SS)固定</span>`
         : `
         <select class="edit-cell-input" data-f="material" style="width:100%;">${materialOptionsHtml}</select>
@@ -1686,6 +1815,36 @@ async function saveItemEdit(id){
     it.jisCode = newJis;
     it.unitWeightKgM2 = unitWeightKgM2;
     it.spec = "エキスパンドメタル " + newJis + " " + dimsLabel;
+    const unitWeight = newAreaM2 * unitWeightKgM2;
+    it.unitWeightLabel = unitWeight.toFixed(2) + " kg/枚";
+    it.rawQty = newQty;
+    it.weight = unitWeight * newQty;
+    it.qtyLabel = newQty + it.unitLabel;
+  } else if(it.type==="checker"){
+    const thickField = row.querySelector('[data-f="checkerThick"]');
+    const newTMm = thickField ? parseFloat(thickField.value) : it.tMm;
+    const unitWeightKgM2 = (CHECKER_DATA.find(([t])=>t===newTMm) || [null,0])[1];
+    let newAreaM2, dimsLabel;
+    if(it.checkerMode === "dims"){
+      const hField = row.querySelector('[data-f="checkerH"]');
+      const wField = row.querySelector('[data-f="checkerW"]');
+      const newH = parseFloat(hField.value) || 0;
+      const newW = parseFloat(wField.value) || 0;
+      if(newH<=0 || newW<=0){ alert("縦・横は1以上を入力してください。"); return; }
+      it.hMm = newH; it.wMm = newW;
+      newAreaM2 = (newH/1000) * (newW/1000);
+      dimsLabel = newH + "×" + newW + "mm";
+    } else {
+      const areaField = row.querySelector('[data-f="checkerArea"]');
+      const newAreaMm2 = parseFloat(areaField.value) || 0;
+      newAreaM2 = newAreaMm2 / 1000000;
+      if(newAreaM2<=0){ alert("面積は正の値を入力してください。"); return; }
+      dimsLabel = newAreaMm2 + "mm²";
+    }
+    it.areaM2 = newAreaM2;
+    it.tMm = newTMm;
+    it.unitWeightKgM2 = unitWeightKgM2;
+    it.spec = "縞鋼板 t" + newTMm + " " + dimsLabel;
     const unitWeight = newAreaM2 * unitWeightKgM2;
     it.unitWeightLabel = unitWeight.toFixed(2) + " kg/枚";
     it.rawQty = newQty;
@@ -1880,10 +2039,11 @@ async function saveEquipmentEdit(id){
 }
 
 /* =============== preview =============== */
-const CATEGORY_ORDER = [...Object.keys(STEEL_DATA), "鉄板", "エキスパンドメタル", "スプロケット", "Vプーリー", "チェーン", "キャリヤアイドラ"];
+const CATEGORY_ORDER = [...Object.keys(STEEL_DATA), "鉄板", "エキスパンドメタル", "縞鋼板", "スプロケット", "Vプーリー", "チェーン", "キャリヤアイドラ"];
 function categoryOf(it){
   if(it.type === "plate") return "鉄板";
   if(it.type === "expand") return "エキスパンドメタル";
+  if(it.type === "checker") return "縞鋼板";
   if(it.type === "equipment") return it.category || "その他部材";
   const idx = it.spec.indexOf(" ");
   return idx>-1 ? it.spec.slice(0, idx) : it.spec;
@@ -1995,6 +2155,7 @@ function bindEvents(){
       $('form-shape').style.display = v==='shape' ? '' : 'none';
       $('form-plate').style.display = v==='plate' ? '' : 'none';
       $('form-expand').style.display = v==='expand' ? '' : 'none';
+      $('form-checker').style.display = v==='checker' ? '' : 'none';
     });
   });
   document.querySelectorAll('input[name=plateMode]').forEach(r=>{
@@ -2013,6 +2174,15 @@ function bindEvents(){
       $('ex_dimsW2').style.display = v==='dims' ? '' : 'none';
       $('ex_areaW').style.display = v==='area' ? '' : 'none';
       updateExpandPreview();
+    });
+  });
+  document.querySelectorAll('input[name=checkerMode]').forEach(r=>{
+    r.addEventListener('change', ()=>{
+      const v = document.querySelector('input[name=checkerMode]:checked').value;
+      $('ck_dimsW').style.display = v==='dims' ? '' : 'none';
+      $('ck_dimsW2').style.display = v==='dims' ? '' : 'none';
+      $('ck_areaW').style.display = v==='area' ? '' : 'none';
+      updateCheckerPreview();
     });
   });
 
@@ -2042,6 +2212,12 @@ function bindEvents(){
     $(id).addEventListener('change', updateExpandPreview);
   });
   $('ex_addBtn').addEventListener('click', addExpandItem);
+
+  ['ck_h','ck_w','ck_area','ck_qty'].forEach(id=>{
+    $(id).addEventListener('input', updateCheckerPreview);
+    $(id).addEventListener('change', updateCheckerPreview);
+  });
+  $('ck_addBtn').addEventListener('click', addCheckerItem);
 
   ['f_siteName','f_date','f_person','f_defaultPrice'].forEach(id=>{
     $(id).addEventListener('change', async ()=>{ await persistProjectMeta(); updatePreviewCalc(); });
@@ -2097,6 +2273,7 @@ function bindEvents(){
   $('s_favBtn').addEventListener('click', saveShapeFavorite);
   $('p_favBtn').addEventListener('click', savePlateFavorite);
   $('ex_favBtn').addEventListener('click', saveExpandFavorite);
+  $('ck_favBtn').addEventListener('click', saveCheckerFavorite);
   $('eq_addBtn').addEventListener('click', addEquipmentItem);
   $('clearItemsBtn').addEventListener('click', clearItems);
   $('clearEquipmentBtn').addEventListener('click', clearEquipmentItems);
