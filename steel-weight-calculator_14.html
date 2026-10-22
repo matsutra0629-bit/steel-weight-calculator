@@ -813,6 +813,7 @@ async function init(){
   if(!currentProject) currentProject = newProjectObj(projects[0].name);
   if(migrateProjectItems(currentProject)) await saveProject(currentProject);
   favorites = await loadFavorites();
+  if(migrateFavorites(favorites)) await saveFavoritesList(favorites);
   companyInfo = await loadCompanyInfo();
   renderProjectSelect();
   loadProjectIntoForm();
@@ -828,10 +829,32 @@ async function init(){
 
 /* 過去バージョンで作成された部材データに、編集機能で必要なフィールド(weightPerM/density/寸法など)を
    既存の重量・仕様テキストから逆算して補完する。NaN化を防ぐための後方互換対応。 */
+/* STEEL_DATAの種別名を変更した際、旧名で保存済みのお気に入り/部材が重量表を引けなくなるのを防ぐ。 */
+const LEGACY_CATEGORY_RENAMES = { "溝形鋼": "溝形鋼(チャンネル)" };
+function migrateFavorites(list){
+  let changed = false;
+  list.forEach(f=>{
+    const to = LEGACY_CATEGORY_RENAMES[f.category];
+    if(f.itemType === "shape" && to){
+      f.label = to + (f.label||"").slice(f.category.length);
+      f.category = to;
+      changed = true;
+    }
+  });
+  return changed;
+}
 function migrateProjectItems(project){
   let changed = false;
   if(!Array.isArray(project.equipmentItems)){ project.equipmentItems = []; changed = true; }
   (project.items||[]).forEach(it=>{
+    if(it.type === "shape"){
+      const to = LEGACY_CATEGORY_RENAMES[it.name];
+      if(to && (it.spec||"").startsWith(it.name+" ")){
+        it.spec = to + it.spec.slice(it.name.length);
+        it.name = to;
+        changed = true;
+      }
+    }
     if(it.rawQty == null){
       const m = (it.qtyLabel||"").match(/^([\d.]+)/);
       it.rawQty = m ? parseFloat(m[1]) : 1;
@@ -1387,6 +1410,7 @@ async function addFromFavorite(favId){
     } else if(fav.mode === "pipe"){
       weightPerM = Math.PI * fav.pipeThick * (fav.pipeOD - fav.pipeThick) * fav.density * 0.001;
     }
+    if(!(weightPerM > 0)){ alert("このお気に入りの単位重量を取得できませんでした。お気に入りを登録し直してください。"); return; }
     const totalWeight = weightPerM * (length/1000) * qty;
     currentProject.items.push({
       id: uid(), type:"shape",
@@ -1587,7 +1611,9 @@ async function handleImportFile(e){
         await saveProject(proj);
       }
       if(Array.isArray(data.favorites) && data.favorites.length){
-        favorites = favorites.concat(data.favorites.map(f=>({...f, id: uid()})));
+        const imported = data.favorites.map(f=>({...f, id: uid()}));
+        migrateFavorites(imported);
+        favorites = favorites.concat(imported);
         await saveFavoritesList(favorites);
       }
       await saveProjectList(projects);
