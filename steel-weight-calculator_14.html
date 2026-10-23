@@ -154,7 +154,9 @@
   .note b{color:var(--ink);}
 
   /* preview / print */
-  #preview{background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:34px 40px;}
+  #preview{background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:12mm; box-sizing:border-box; width:var(--pv-w,297mm); max-width:100%; margin:0 auto;}
+  .page-setup{display:inline-flex; gap:8px; align-items:center; margin-right:10px; font-size:12px; color:#8b8578;}
+  .page-setup select{padding:6px 8px; font-size:12.5px; width:auto;}
   .doc-company-bar{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
   .doc-company-bar img{max-height:52px; max-width:170px; object-fit:contain;}
   #pv_companyName{font-weight:700; font-size:15px; color:var(--ink);}
@@ -179,15 +181,10 @@
   .doc-grand .stamp .v{font-size:26px; font-weight:700;}
   .doc-foot{margin-top:26px; font-size:11px; color:#8b8578;}
 
-  @page{ size: landscape; margin: 12mm; }
-  @media print{
-    body *{visibility:hidden;}
-    #preview, #preview *{visibility:visible;}
-    #preview{position:absolute; left:0; top:0; width:100%; border:none; padding:0;
-      -webkit-print-color-adjust:exact; print-color-adjust:exact;}
-    #preview *{overflow:visible !important; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
-    #preview table{width:100%; table-layout:fixed; font-size:11px;}
-    #preview th, #preview td{white-space:normal; word-break:break-word; padding:6px 6px;}
+  /* 画面プレビューと印刷で同じ表レイアウトを使い、用紙設定どおりの見た目で確認できるようにする */
+  @media print, (min-width: 900px){
+    #preview table{width:100%; table-layout:fixed; font-size:var(--pv-fs,11px);}
+    #preview th, #preview td{white-space:normal; word-break:break-word; padding:.55em .55em;}
     #preview .doc-table th:nth-child(1), #preview .doc-table td:nth-child(1){width:3.5%;}
     #preview .doc-table th:nth-child(2), #preview .doc-table td:nth-child(2){width:15%;}
     #preview .doc-table th:nth-child(3), #preview .doc-table td:nth-child(3){width:20%;}
@@ -198,6 +195,28 @@
     #preview .doc-table th:nth-child(8), #preview .doc-table td:nth-child(8){width:9%;}
     #preview .doc-table th:nth-child(9), #preview .doc-table td:nth-child(9){width:9%;}
     #preview .doc-table th:nth-child(10), #preview .doc-table td:nth-child(10){width:9%;}
+    #preview.pv-narrow .doc-table th:nth-child(1), #preview.pv-narrow .doc-table td:nth-child(1){width:4.5%;}
+    #preview.pv-narrow .doc-table th:nth-child(2), #preview.pv-narrow .doc-table td:nth-child(2){width:13%;}
+    #preview.pv-narrow .doc-table th:nth-child(3), #preview.pv-narrow .doc-table td:nth-child(3){width:19%;}
+    #preview.pv-narrow .doc-table th:nth-child(4), #preview.pv-narrow .doc-table td:nth-child(4){width:8.5%;}
+    #preview.pv-narrow .doc-table th:nth-child(5), #preview.pv-narrow .doc-table td:nth-child(5){width:7.5%;}
+    #preview.pv-narrow .doc-table th:nth-child(6), #preview.pv-narrow .doc-table td:nth-child(6){width:8%;}
+    #preview.pv-narrow .doc-table th:nth-child(7), #preview.pv-narrow .doc-table td:nth-child(7){width:9.5%;}
+    #preview.pv-narrow .doc-table th:nth-child(8), #preview.pv-narrow .doc-table td:nth-child(8){width:9%;}
+    #preview.pv-narrow .doc-table th:nth-child(9), #preview.pv-narrow .doc-table td:nth-child(9){width:8.5%;}
+    #preview.pv-narrow .doc-table th:nth-child(10), #preview.pv-narrow .doc-table td:nth-child(10){width:12.5%;}
+  }
+  @media (min-width: 900px){
+    #preview{max-width:none; zoom:var(--pv-zoom,1);}
+  }
+  #preview thead{display:table-header-group;}
+  #preview tr, .doc-grand{break-inside:avoid;}
+  @media print{
+    body *{visibility:hidden;}
+    #preview, #preview *{visibility:visible;}
+    #preview{position:absolute; left:0; top:0; width:100%; max-width:none; margin:0; border:none; padding:0; zoom:1;
+      -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    #preview *{overflow:visible !important; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
     .no-print{display:none !important;}
   }
 
@@ -533,6 +552,17 @@
   <!-- ============ PREVIEW PANEL ============ -->
   <div class="panel" id="panel-preview">
     <div class="no-print" style="margin-bottom:12px; text-align:right;">
+      <label class="page-setup">用紙
+        <select id="pageSize">
+          <option value="A4">A4</option><option value="A3">A3</option>
+          <option value="B5">B5</option><option value="B4">B4</option>
+        </select>
+      </label>
+      <label class="page-setup">向き
+        <select id="pageOrient">
+          <option value="landscape">横</option><option value="portrait">縦</option>
+        </select>
+      </label>
       <button class="btn" id="printBtn">🖶 印刷 / PDF保存</button>
     </div>
     <div id="preview">
@@ -824,6 +854,8 @@ async function init(){
   updateCompanyLogoUI();
   applyThemeButtonLabel();
   bindEvents();
+  restorePageSetup();
+  if(window.ResizeObserver) new ResizeObserver(fitPreviewZoom).observe($('panel-preview'));
   updatePreviewCalc();
 }
 
@@ -2202,6 +2234,44 @@ function updatePreviewCalc(){
   $('pv_price').textContent = yen(totalP);
 }
 
+/* =============== page setup (用紙サイズ/向き) =============== */
+const PAPER_MM = { A4:[210,297], A3:[297,420], B5:[176,250], B4:[250,353] };
+const PAGE_MARGIN_MM = 12;
+function applyPageSetup(){
+  const size = PAPER_MM[$('pageSize').value] ? $('pageSize').value : "A4";
+  const orient = $('pageOrient').value === "portrait" ? "portrait" : "landscape";
+  try{ localStorage.setItem('pageSetup', JSON.stringify({size, orient})); }catch(e){}
+  let [w, h] = PAPER_MM[size];
+  if(orient === "landscape") [w, h] = [h, w];
+  const printableW = w - PAGE_MARGIN_MM*2;
+  const fs = Math.max(8.5, Math.min(13, 11 * printableW / 273));
+  const pv = $('preview');
+  pv.style.setProperty('--pv-w', w + 'mm');
+  pv.style.setProperty('--pv-fs', fs.toFixed(1) + 'px');
+  pv.classList.toggle('pv-narrow', printableW < 200);
+  let st = document.getElementById('pageStyle');
+  if(!st){ st = document.createElement('style'); st.id = 'pageStyle'; document.head.appendChild(st); }
+  st.textContent = `@page{ size: ${size} ${orient}; margin: ${PAGE_MARGIN_MM}mm; }`;
+  fitPreviewZoom();
+}
+/* 画面が用紙幅より狭いとき縮小表示し、印刷時と同じ折り返し位置で確認できるようにする */
+function fitPreviewZoom(){
+  const pv = $('preview');
+  const ps = getComputedStyle(pv.parentElement);
+  const avail = pv.parentElement.clientWidth - parseFloat(ps.paddingLeft) - parseFloat(ps.paddingRight);
+  const paperPx = parseFloat(pv.style.getPropertyValue('--pv-w')) * 96 / 25.4;
+  if(!(avail > 0) || !(paperPx > 0)) return;
+  pv.style.setProperty('--pv-zoom', Math.min(1, avail / paperPx).toFixed(3));
+}
+function restorePageSetup(){
+  try{
+    const s = JSON.parse(localStorage.getItem('pageSetup') || 'null');
+    if(s && PAPER_MM[s.size]) $('pageSize').value = s.size;
+    if(s && (s.orient === "portrait" || s.orient === "landscape")) $('pageOrient').value = s.orient;
+  }catch(e){}
+  applyPageSetup();
+}
+
 /* =============== events =============== */
 function bindEvents(){
   document.querySelectorAll('.tab').forEach(t=>{
@@ -2330,6 +2400,8 @@ function bindEvents(){
     renderProjectSelect(); loadProjectIntoForm(); renderItems(); renderEquipmentItems(); updatePreviewCalc();
   });
 
+  $('pageSize').addEventListener('change', applyPageSetup);
+  $('pageOrient').addEventListener('change', applyPageSetup);
   $('printBtn').addEventListener('click', ()=> window.print());
 
   $('exportProjectBtn').addEventListener('click', exportCurrentProject);
