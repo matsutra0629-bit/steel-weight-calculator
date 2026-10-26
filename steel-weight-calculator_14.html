@@ -184,7 +184,9 @@
   /* 画面プレビューと印刷で同じ表レイアウトを使い、用紙設定どおりの見た目で確認できるようにする */
   @media print, (min-width: 900px){
     #preview table{width:100%; table-layout:fixed; font-size:var(--pv-fs,11px);}
-    #preview th, #preview td{white-space:normal; word-break:break-word; padding:.55em .55em;}
+    #preview th, #preview td{white-space:normal; word-break:break-word; padding:6px .55em;}
+    .doc-meta{font-size:calc(var(--pv-fs,11px)*1.1);}
+    .doc-foot{font-size:calc(var(--pv-fs,11px)*.9);}
     #preview .doc-table th:nth-child(1), #preview .doc-table td:nth-child(1){width:3.5%;}
     #preview .doc-table th:nth-child(2), #preview .doc-table td:nth-child(2){width:15%;}
     #preview .doc-table th:nth-child(3), #preview .doc-table td:nth-child(3){width:20%;}
@@ -855,7 +857,8 @@ async function init(){
   applyThemeButtonLabel();
   bindEvents();
   restorePageSetup();
-  if(window.ResizeObserver) new ResizeObserver(fitPreviewZoom).observe($('panel-preview'));
+  if(window.ResizeObserver) new ResizeObserver(scheduleFontFit).observe($('panel-preview'));
+  window.addEventListener('beforeprint', fitPreviewFont);
   updatePreviewCalc();
 }
 
@@ -2232,6 +2235,7 @@ function updatePreviewCalc(){
   });
   $('pv_weight').textContent = kg(totalW);
   $('pv_price').textContent = yen(totalP);
+  scheduleFontFit();
 }
 
 /* =============== page setup (用紙サイズ/向き) =============== */
@@ -2244,14 +2248,45 @@ function applyPageSetup(){
   let [w, h] = PAPER_MM[size];
   if(orient === "landscape") [w, h] = [h, w];
   const printableW = w - PAGE_MARGIN_MM*2;
-  const fs = Math.max(8.5, Math.min(13, 11 * printableW / 273));
   const pv = $('preview');
+  pv.dataset.printableW = printableW;
   pv.style.setProperty('--pv-w', w + 'mm');
-  pv.style.setProperty('--pv-fs', fs.toFixed(1) + 'px');
   pv.classList.toggle('pv-narrow', printableW < 200);
   let st = document.getElementById('pageStyle');
   if(!st){ st = document.createElement('style'); st.id = 'pageStyle'; document.head.appendChild(st); }
   st.textContent = `@page{ size: ${size} ${orient}; margin: ${PAGE_MARGIN_MM}mm; }`;
+  scheduleFontFit();
+}
+/* 数値・英数字の語が列幅からはみ出して途中で折り返されない最大の文字サイズを選び、印刷時の文字を極力大きくする */
+let fontFitQueued = false;
+function scheduleFontFit(){
+  if(fontFitQueued) return;
+  fontFitQueued = true;
+  setTimeout(()=>{ fontFitQueued = false; fitPreviewFont(); }, 0);
+}
+function fitPreviewFont(){
+  const pv = $('preview'), tb = pv.querySelector('table');
+  const printableW = parseFloat(pv.dataset.printableW);
+  if(!tb || !(tb.offsetWidth > 0) || !(printableW > 0)){ fitPreviewZoom(); return; }
+  const prevZoom = pv.style.getPropertyValue('--pv-zoom');
+  pv.style.setProperty('--pv-zoom', '1');
+  const ctx = document.createElement('canvas').getContext('2d');
+  const cells = [...tb.querySelectorAll('thead th, tbody tr:not(.cat-header-row) td')];
+  const noCjk = /^[^　-鿿＀-￯]+$/;
+  const fits = ()=> cells.every(c=>{
+    const cs = getComputedStyle(c);
+    const avail = c.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    return c.textContent.split(/\s+/).every(tok=> !tok || !noCjk.test(tok) || ctx.measureText(tok).width <= avail);
+  });
+  const maxFs = Math.min(22, 15 * printableW / 273), minFs = 7.5;
+  let fs = maxFs;
+  for(; fs > minFs; fs -= 0.5){
+    pv.style.setProperty('--pv-fs', fs.toFixed(1) + 'px');
+    if(fits()) break;
+  }
+  pv.style.setProperty('--pv-fs', Math.max(fs, minFs).toFixed(1) + 'px');
+  pv.style.setProperty('--pv-zoom', prevZoom || '1');
   fitPreviewZoom();
 }
 /* 画面が用紙幅より狭いとき縮小表示し、印刷時と同じ折り返し位置で確認できるようにする */
