@@ -1,0 +1,16 @@
+{
+  "name": "鋼材・部材 重量計算/材料手配書",
+  "short_name": "鋼材重量計算",
+  "description": "鋼材・部材の重量計算と材料手配書の作成",
+  "lang": "ja",
+  "start_url": "./steel-weight-calculator_14.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F6F4EF",
+  "theme_color": "#294A63",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

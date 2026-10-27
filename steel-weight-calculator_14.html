@@ -2,6 +2,15 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#294A63">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="鋼材重量計算">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>鋼材・部材 重量計算/材料手配書</title>
 <style>
   :root{
@@ -277,7 +286,12 @@
     }
     #itemsTable td.row-actions, #equipmentTable td.row-actions{justify-content:flex-end;}
     #itemsTable td.row-actions::before, #equipmentTable td.row-actions::before{content:none;}
-    .sticky-summary{gap:20px; padding:9px 10px;}
+    .sticky-summary{gap:20px; padding:9px 10px calc(9px + env(safe-area-inset-bottom));}
+    #app{padding-left:max(12px, env(safe-area-inset-left)); padding-right:max(12px, env(safe-area-inset-right));}
+    .fav-inputs{flex-wrap:wrap;}
+    .fav-inputs .btn{white-space:nowrap;}
+    /* iOSは16px未満の入力欄にフォーカスすると画面が拡大されるため */
+    #app input:not([type=radio]):not([type=checkbox]), #app select, #app textarea, .proj-modal-bg input{font-size:16px;}
     .ss-val{font-size:14px;}
   }
 </style>
@@ -857,6 +871,9 @@ async function init(){
   applyThemeButtonLabel();
   bindEvents();
   restorePageSetup();
+  if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
   if(window.ResizeObserver) new ResizeObserver(scheduleFontFit).observe($('panel-preview'));
   window.addEventListener('beforeprint', fitPreviewFont);
   updatePreviewCalc();
